@@ -158,8 +158,11 @@ class WizardApp {
     } else if (tab === 'academy') {
       this.renderAcademySection('openings');
     } else if (tab === 'analysis') {
+      analysisEngine.loadGame(this.game);
+      this.activeBoard.attachGame(analysisEngine.analysisGame);
       this.runAnalysisUpdate();
     } else if (tab === 'play') {
+      this.activeBoard.attachGame(this.game);
       this.updateEvaluationBar();
     }
   }
@@ -461,12 +464,12 @@ class WizardApp {
     document.getElementById('load-fen-btn')?.addEventListener('click', () => {
       const fenInput = document.getElementById('fen-input').value.trim();
       if (!fenInput) return;
-      try {
-        this.game.load(fenInput);
-        this.activeBoard.attachGame(this.game);
+      const success = analysisEngine.loadFEN(fenInput);
+      if (success) {
+        this.activeBoard.attachGame(analysisEngine.analysisGame);
         soundEngine.playSpellSelectSound();
         this.runAnalysisUpdate();
-      } catch (e) {
+      } else {
         alert('Invalid FEN format!');
       }
     });
@@ -474,9 +477,9 @@ class WizardApp {
     document.getElementById('load-pgn-btn')?.addEventListener('click', () => {
       const pgnInput = document.getElementById('pgn-input').value.trim();
       if (!pgnInput) return;
-      const success = analysisEngine.parsePGN(this.game, pgnInput);
+      const success = analysisEngine.loadPGN(pgnInput);
       if (success) {
-        this.activeBoard.attachGame(this.game);
+        this.activeBoard.attachGame(analysisEngine.analysisGame);
         soundEngine.playSpellSelectSound();
         this.runAnalysisUpdate();
       } else {
@@ -486,24 +489,54 @@ class WizardApp {
 
     // Navigation buttons for Analysis replay
     document.getElementById('step-first')?.addEventListener('click', () => {
-      this.game.reset();
-      this.activeBoard.attachGame(this.game);
+      soundEngine.playSpellSelectSound();
+      const game = analysisEngine.stepFirst();
+      this.activeBoard.attachGame(game);
       this.runAnalysisUpdate();
     });
 
     document.getElementById('step-prev')?.addEventListener('click', () => {
-      this.game.undo();
-      this.activeBoard.attachGame(this.game);
+      soundEngine.playSpellSelectSound();
+      const game = analysisEngine.stepPrev();
+      this.activeBoard.attachGame(game);
       this.runAnalysisUpdate();
+    });
+
+    document.getElementById('step-next')?.addEventListener('click', () => {
+      soundEngine.playSpellSelectSound();
+      const game = analysisEngine.stepNext();
+      this.activeBoard.attachGame(game);
+      this.runAnalysisUpdate();
+    });
+
+    document.getElementById('step-last')?.addEventListener('click', () => {
+      soundEngine.playSpellSelectSound();
+      const game = analysisEngine.stepLast();
+      this.activeBoard.attachGame(game);
+      this.runAnalysisUpdate();
+    });
+
+    const autoBtn = document.getElementById('auto-play-btn');
+    autoBtn?.addEventListener('click', () => {
+      soundEngine.playSpellSelectSound();
+      const isPlaying = analysisEngine.toggleAutoplay((game) => {
+        this.activeBoard.attachGame(game);
+        this.runAnalysisUpdate();
+      });
+      autoBtn.classList.toggle('active', isPlaying);
     });
   }
 
   runAnalysisUpdate() {
-    const evalData = analysisEngine.evaluateCurrentPosition(this.game);
+    const evalData = analysisEngine.evaluateCurrentPosition();
 
-    document.getElementById('analysis-eval').textContent = evalData.evalText;
-    document.getElementById('analysis-best-move').textContent = evalData.bestMove;
-    document.getElementById('analysis-classification').textContent = evalData.classification;
+    const evalEl = document.getElementById('analysis-eval');
+    const moveEl = document.getElementById('analysis-best-move');
+    const classEl = document.getElementById('analysis-classification');
+
+    if (evalEl) evalEl.textContent = evalData.evalText;
+    if (moveEl) moveEl.textContent = evalData.bestMove;
+    if (classEl) classEl.textContent = evalData.classification;
 
     this.updateEvaluationBar(evalData.fillPercentage, evalData.evalText);
   }

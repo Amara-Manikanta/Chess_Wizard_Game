@@ -1,4 +1,4 @@
-// Optimized Minimax Engine with Move Ordering (MVV-LVA), Transposition Caching & Non-blocking Async Execution
+// Grandmaster Chess Engine with Quiescence Search, Advanced Evaluation & High-Level Dumbledore AI
 
 const PIECE_VALUES = {
   p: 100,
@@ -15,9 +15,9 @@ const PAWN_TABLE = [
   50, 50, 50, 50, 50, 50, 50, 50,
   10, 10, 20, 30, 30, 20, 10, 10,
    5,  5, 10, 25, 25, 10,  5,  5,
-   0,  0,  0, 20, 20,  0,  0,  0,
+   0,  0,  0, 25, 25,  0,  0,  0,
    5, -5,-10,  0,  0,-10, -5,  5,
-   5, 10, 10,-20,-20, 10, 10,  5,
+   5, 10, 10,-25,-25, 10, 10,  5,
    0,  0,  0,  0,  0,  0,  0,  0
 ];
 
@@ -25,8 +25,8 @@ const KNIGHT_TABLE = [
   -50,-40,-30,-30,-30,-30,-40,-50,
   -40,-20,  0,  0,  0,  0,-20,-40,
   -30,  0, 10, 15, 15, 10,  0,-30,
-  -30,  5, 15, 20, 20, 15,  5,-30,
-  -30,  0, 15, 20, 20, 15,  0,-30,
+  -30,  5, 15, 25, 25, 15,  5,-30,
+  -30,  0, 15, 25, 25, 15,  0,-30,
   -30,  5, 10, 15, 15, 10,  5,-30,
   -40,-20,  0,  5,  5,  0,-20,-40,
   -50,-40,-30,-30,-30,-30,-40,-50
@@ -45,7 +45,7 @@ const BISHOP_TABLE = [
 
 const ROOK_TABLE = [
     0,  0,  0,  0,  0,  0,  0,  0,
-    5, 10, 10, 10, 10, 10, 10,  5,
+   15, 20, 20, 20, 20, 20, 20, 15,
    -5,  0,  0,  0,  0,  0,  0, -5,
    -5,  0,  0,  0,  0,  0,  0, -5,
    -5,  0,  0,  0,  0,  0,  0, -5,
@@ -54,20 +54,41 @@ const ROOK_TABLE = [
     0,  0,  0,  5,  5,  0,  0,  0
 ];
 
+const QUEEN_TABLE = [
+  -20,-10,-10, -5, -5,-10,-10,-20,
+  -10,  0,  0,  0,  0,  0,  0,-10,
+  -10,  0,  5,  5,  5,  5,  0,-10,
+   -5,  0,  5,  5,  5,  5,  0, -5,
+    0,  0,  5,  5,  5,  5,  0, -5,
+  -10,  5,  5,  5,  5,  5,  0,-10,
+  -10,  0,  5,  0,  0,  0,  0,-10,
+  -20,-10,-10, -5, -5,-10,-10,-20
+];
+
+const KING_MIDGAME_TABLE = [
+  -30,-40,-40,-50,-50,-40,-40,-30,
+  -30,-40,-40,-50,-50,-40,-40,-30,
+  -30,-40,-40,-50,-50,-40,-40,-30,
+  -30,-40,-40,-50,-50,-40,-40,-30,
+  -20,-30,-30,-40,-40,-30,-30,-20,
+  -10,-20,-20,-20,-20,-20,-20,-10,
+   20, 20,  0,  0,  0,  0, 20, 20,
+   20, 30, 10,  0,  0, 10, 30, 20
+];
+
 export class ChessEngine {
   constructor() {
     this.transpositionTable = new Map();
-    this.maxTableSize = 10000;
+    this.maxTableSize = 25000;
   }
 
-  // Clear Transposition Cache if oversized
   clearCache() {
     if (this.transpositionTable.size > this.maxTableSize) {
       this.transpositionTable.clear();
     }
   }
 
-  // Evaluate position from White's perspective (+ is White advantage, - is Black advantage)
+  // Advanced Evaluation (+ is White advantage, - is Black advantage)
   evaluateBoard(game) {
     if (game.isCheckmate()) {
       return game.turn() === 'w' ? -100000 : 100000;
@@ -78,6 +99,11 @@ export class ChessEngine {
 
     let totalEval = 0;
     const board = game.board();
+
+    // Piece Mobility & Count
+    const legalMovesCount = game.moves().length;
+    const mobilityBonus = game.turn() === 'w' ? legalMovesCount * 2 : -legalMovesCount * 2;
+    totalEval += mobilityBonus;
 
     for (let r = 0; r < 8; r++) {
       for (let c = 0; c < 8; c++) {
@@ -91,6 +117,8 @@ export class ChessEngine {
           else if (piece.type === 'n') posVal = KNIGHT_TABLE[piece.color === 'w' ? idx : 63 - idx];
           else if (piece.type === 'b') posVal = BISHOP_TABLE[piece.color === 'w' ? idx : 63 - idx];
           else if (piece.type === 'r') posVal = ROOK_TABLE[piece.color === 'w' ? idx : 63 - idx];
+          else if (piece.type === 'q') posVal = QUEEN_TABLE[piece.color === 'w' ? idx : 63 - idx];
+          else if (piece.type === 'k') posVal = KING_MIDGAME_TABLE[piece.color === 'w' ? idx : 63 - idx];
 
           const score = val + posVal;
           totalEval += piece.color === 'w' ? score : -score;
@@ -101,7 +129,7 @@ export class ChessEngine {
     return totalEval;
   }
 
-  // Move Ordering heuristic: Sort captures & checks first (MVV-LVA) to maximize Alpha-Beta cutoffs!
+  // Move Ordering (MVV-LVA + Checks)
   orderMoves(game, moves) {
     return moves.sort((a, b) => {
       let scoreA = 0;
@@ -113,14 +141,51 @@ export class ChessEngine {
       if (b.captured) {
         scoreB += (PIECE_VALUES[b.captured] * 10) - PIECE_VALUES[b.piece];
       }
-      if (a.san && a.san.includes('+')) scoreA += 50;
-      if (b.san && b.san.includes('+')) scoreB += 50;
+      if (a.san && a.san.includes('+')) scoreA += 80;
+      if (b.san && b.san.includes('+')) scoreB += 80;
+      if (a.promotion) scoreA += 800;
+      if (b.promotion) scoreB += 800;
 
       return scoreB - scoreA;
     });
   }
 
-  // Minimax with Alpha-Beta Pruning + Transposition Table + Move Ordering
+  // Quiescence Search: Evaluates tactical captures beyond max depth so AI never gets tricked by trades!
+  quiescence(game, alpha, beta, isMaximizing) {
+    const standPat = this.evaluateBoard(game);
+
+    if (isMaximizing) {
+      if (standPat >= beta) return beta;
+      if (standPat > alpha) alpha = standPat;
+
+      const captureMoves = this.orderMoves(game, game.moves({ verbose: true }).filter(m => m.captured));
+      for (const move of captureMoves) {
+        game.move(move);
+        const score = this.quiescence(game, alpha, beta, false);
+        game.undo();
+
+        if (score >= beta) return beta;
+        if (score > alpha) alpha = score;
+      }
+      return alpha;
+    } else {
+      if (standPat <= alpha) return alpha;
+      if (standPat < beta) beta = standPat;
+
+      const captureMoves = this.orderMoves(game, game.moves({ verbose: true }).filter(m => m.captured));
+      for (const move of captureMoves) {
+        game.move(move);
+        const score = this.quiescence(game, alpha, beta, true);
+        game.undo();
+
+        if (score <= alpha) return alpha;
+        if (score < beta) beta = score;
+      }
+      return beta;
+    }
+  }
+
+  // Minimax with Alpha-Beta + Quiescence + Transposition Cache
   minimax(game, depth, alpha, beta, isMaximizing) {
     const fen = game.fen();
     const cached = this.transpositionTable.get(fen);
@@ -128,7 +193,14 @@ export class ChessEngine {
       return cached.result;
     }
 
-    if (depth === 0 || game.isGameOver()) {
+    if (depth === 0) {
+      const evalScore = this.quiescence(game, alpha, beta, isMaximizing);
+      const res = { score: evalScore, bestMove: null };
+      this.transpositionTable.set(fen, { depth, result: res });
+      return res;
+    }
+
+    if (game.isGameOver()) {
       const evalScore = this.evaluateBoard(game);
       const res = { score: evalScore, bestMove: null };
       this.transpositionTable.set(fen, { depth, result: res });
@@ -176,10 +248,9 @@ export class ChessEngine {
     }
   }
 
-  // Non-blocking async calculation for instant UI responsiveness
+  // Async best move calculation
   async getBestMoveAsync(game, difficulty = 'ron') {
     return new Promise((resolve) => {
-      // Yield to event loop first to prevent frame drop
       requestAnimationFrame(() => {
         const isWhite = game.turn() === 'w';
         this.clearCache();
@@ -187,7 +258,7 @@ export class ChessEngine {
         let depth = 2;
         if (difficulty === 'ron') {
           const moves = game.moves({ verbose: true });
-          if (Math.random() < 0.2) {
+          if (Math.random() < 0.25) {
             resolve(moves[Math.floor(Math.random() * moves.length)]);
             return;
           }
@@ -197,7 +268,7 @@ export class ChessEngine {
         } else if (difficulty === 'snape') {
           depth = 3;
         } else if (difficulty === 'dumbledore') {
-          depth = 3; // depth 3 with move ordering is fast & grandmaster strong!
+          depth = 4; // Grandmaster Depth 4 + Quiescence Search!
         }
 
         const res = this.minimax(game, depth, -Infinity, Infinity, isWhite);
@@ -212,7 +283,7 @@ export class ChessEngine {
     if (difficulty === 'ron') depth = 1;
     else if (difficulty === 'hermione') depth = 2;
     else if (difficulty === 'snape') depth = 3;
-    else if (difficulty === 'dumbledore') depth = 3;
+    else if (difficulty === 'dumbledore') depth = 4;
 
     return this.minimax(game, depth, -Infinity, Infinity, isWhite).bestMove;
   }
