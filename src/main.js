@@ -27,11 +27,11 @@ class WizardApp {
     // 1. Initialize Canvas Particle Overlay
     particleEngine.init('magic-canvas');
 
-    // 2. Initialize Boards (2D & 3D)
+    // 2. Initialize 2D Carved Stone Board as primary default
     this.board2d = new WizardBoard('chess-board', (moveResult) => this.onPlayerMove(moveResult));
-    this.board3d = new WizardBoard3D('chess-board', (moveResult) => this.onPlayerMove(moveResult));
+    this.board3d = null;
 
-    this.activeBoard = this.is3D ? this.board3d : this.board2d;
+    this.activeBoard = this.board2d;
     this.activeBoard.attachGame(this.game);
 
     // 3. Bind Header Navigation Tabs
@@ -191,9 +191,20 @@ class WizardApp {
     viewBtn?.addEventListener('click', () => {
       soundEngine.playSpellSelectSound();
       this.is3D = !this.is3D;
-      viewBtn.textContent = this.is3D ? '🧊 3D Mode' : '📜 2D View';
+      viewBtn.textContent = this.is3D ? '🧊 3D Mode (Active)' : '📜 Carved Stone Board';
 
-      this.activeBoard = this.is3D ? this.board3d : this.board2d;
+      const boardContainer = document.getElementById('chess-board');
+      if (this.is3D) {
+        if (!this.board3d) {
+          this.board3d = new WizardBoard3D('chess-board', (moveResult) => this.onPlayerMove(moveResult));
+        }
+        this.activeBoard = this.board3d;
+        boardContainer?.classList.add('mode-3d');
+      } else {
+        this.activeBoard = this.board2d;
+        boardContainer?.classList.remove('mode-3d');
+      }
+
       this.activeBoard.attachGame(this.game);
     });
 
@@ -534,10 +545,12 @@ class WizardApp {
     const evalEl = document.getElementById('analysis-eval');
     const moveEl = document.getElementById('analysis-best-move');
     const classEl = document.getElementById('analysis-classification');
+    const stepEl = document.getElementById('analysis-step-counter');
 
     if (evalEl) evalEl.textContent = evalData.evalText;
     if (moveEl) moveEl.textContent = evalData.bestMove;
     if (classEl) classEl.textContent = evalData.classification;
+    if (stepEl) stepEl.textContent = evalData.stepText;
 
     this.updateEvaluationBar(evalData.fillPercentage, evalData.evalText);
   }

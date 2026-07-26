@@ -282,6 +282,10 @@ body {
   background: var(--bg-secondary);
 }
 
+.chess-board.mode-3d {
+  display: block !important;
+}
+
 .square {
   position: relative;
   display: flex;

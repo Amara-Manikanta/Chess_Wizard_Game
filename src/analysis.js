@@ -11,13 +11,13 @@ export class AnalysisEngine {
     this.autoPlayInterval = null;
   }
 
-  // Load active played game or imported PGN into replay engine
+  // Load active played game into replay engine and start at beginning for easy step-by-step review
   loadGame(sourceGame) {
     this.analysisGame = new Chess();
     const history = sourceGame.history({ verbose: true });
     this.historyMoves = [...history];
-    this.currentStep = this.historyMoves.length - 1;
-    this.replayToStep(this.currentStep);
+    this.currentStep = -1;
+    this.replayToStep(-1);
   }
 
   loadFEN(fenString) {
@@ -37,8 +37,8 @@ export class AnalysisEngine {
       tempGame.loadPgn(pgnString);
       this.analysisGame = new Chess();
       this.historyMoves = tempGame.history({ verbose: true });
-      this.currentStep = this.historyMoves.length - 1;
-      this.replayToStep(this.currentStep);
+      this.currentStep = -1;
+      this.replayToStep(-1);
       return true;
     } catch (e) {
       return false;
@@ -118,12 +118,19 @@ export class AnalysisEngine {
       classification = 'Equal Position ⚖️';
     }
 
+    let stepText = `Start (0 / ${this.historyMoves.length})`;
+    if (this.currentStep >= 0 && this.historyMoves[this.currentStep]) {
+      const lastMove = this.historyMoves[this.currentStep];
+      stepText = `Move ${this.currentStep + 1}/${this.historyMoves.length} (${lastMove.san})`;
+    }
+
     return {
       score,
       evalText,
       fillPercentage,
       bestMove: bestMove ? `${bestMove.from} → ${bestMove.to}` : 'None',
-      classification
+      classification,
+      stepText
     };
   }
 }
