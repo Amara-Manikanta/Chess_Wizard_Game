@@ -14,7 +14,7 @@ class WizardApp {
   constructor() {
     this.game = new Chess();
     this.currentMode = 'play'; // 'play', 'puzzles', 'academy', 'analysis'
-    this.is3D = true; // Default to 3D Real Pieces Mode
+    this.is3D = false; // Default to original carved stone 2D board
     this.aiOpponent = 'ron';
     this.isAiThinking = false;
     this.capturedPieces = { w: [], b: [] };
