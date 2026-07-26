@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wizard's Chess & Learning Academy</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script type="module" crossorigin src="/assets/index-DgoRP90C.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-CYkKMItn.css">
+</head>
+<body>
+  <!-- Ambient Particle Canvas for Floating Magic & Spell FX -->
+  <canvas id="magic-canvas"></canvas>
+
+  <div id="app">
+    <!-- Top Navigation Header -->
+    <header class="app-header">
+      <div class="logo-container">
+        <div class="logo-icon">⚡</div>
+        <div class="logo-text">
+          <h1>WIZARD'S CHESS</h1>
+          <span class="sub-title">Grand Academy & Practice Realm</span>
+        </div>
+      </div>
+
+      <nav class="nav-tabs">
+        <button class="nav-btn active" data-tab="play">
+          <span class="icon">🏰</span> Duel AI
+        </button>
+        <button class="nav-btn" data-tab="puzzles">
+          <span class="icon">⚡</span> Daily Puzzles
+        </button>
+        <button class="nav-btn" data-tab="academy">
+          <span class="icon">📖</span> Training Academy
+        </button>
+        <button class="nav-btn" data-tab="analysis">
+          <span class="icon">🔍</span> Game Analysis
+        </button>
+      </nav>
+
+      <div class="header-actions">
+        <button id="sound-toggle" class="icon-btn" title="Toggle Magical Sound FX">
+          <span id="sound-icon">🔊</span>
+        </button>
+        <button id="theme-toggle" class="icon-btn" title="Toggle Magical Aura">
+          <span>✨</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="main-container">
+
+      <!-- Board Viewport (Left Side) -->
+      <section class="board-section">
+        <!-- Evaluation Bar for Live Advantage -->
+        <div class="eval-bar-container" id="eval-bar-wrapper">
+          <div class="eval-bar-fill" id="eval-bar-fill" style="height: 50%;"></div>
+          <div class="eval-bar-text" id="eval-bar-text">0.0</div>
+        </div>
+
+        <div class="board-wrapper">
+          <!-- Turn Indicator Banner -->
+          <div class="turn-banner" id="turn-banner">
+            <span class="turn-dot white"></span> White to move
+          </div>
+
+          <!-- Chess Board Grid -->
+          <div id="chess-board" class="chess-board"></div>
+
+          <!-- Board Controls Overlay -->
+          <div class="board-footer-controls">
+            <button id="view-mode-btn" class="secondary-btn" title="Toggle 3D / 2D Perspective">
+              🧊 3D Mode
+            </button>
+            <button id="flip-board-btn" class="secondary-btn" title="Flip Board Perspective">
+              🔄 Flip View
+            </button>
+            <button id="reset-board-btn" class="secondary-btn" title="Reset Game">
+              ⚔️ New Game
+            </button>
+            <button id="hint-btn" class="secondary-btn magical-highlight" title="Cast Lumos (Hint)">
+              💡 Lumos Hint
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Sidebar Controls & Tabs Content (Right Side) -->
+      <aside class="sidebar-section">
+
+        <!-- TAB 1: DUEL AI (PLAY) -->
+        <div id="tab-play" class="tab-content active">
+          <div class="panel-header">
+            <h2>Wizard Opponents</h2>
+            <p>Select your adversary and battle on the enchanted board</p>
+          </div>
+
+          <div class="opponent-selector">
+            <div class="opponent-card active" data-ai="ron">
+              <div class="avatar">🧙‍♂️</div>
+              <div class="info">
+                <h3>Ron Weasley</h3>
+                <span class="badge beginner">Intuitive • Rating 1100</span>
+                <p>"I like playing chess. Mum always makes me play!"</p>
+              </div>
+            </div>
+
+            <div class="opponent-card" data-ai="hermione">
+              <div class="avatar">👩‍🎓</div>
+              <div class="info">
+                <h3>Hermione Granger</h3>
+                <span class="badge intermediate">Tactical • Rating 1500</span>
+                <p>"I've read all about the famous grandmaster games."</p>
+              </div>
+            </div>
+
+            <div class="opponent-card" data-ai="snape">
+              <div class="avatar">🧙</div>
+              <div class="info">
+                <h3>Severus Snape</h3>
+                <span class="badge advanced">Strategic • Rating 1900</span>
+                <p>"Mind control and subtle tactical traps."</p>
+              </div>
+            </div>
+
+            <div class="opponent-card" data-ai="dumbledore">
+              <div class="avatar">👑</div>
+              <div class="info">
+                <h3>Albus Dumbledore</h3>
+                <span class="badge master">Grandmaster • Rating 2400</span>
+                <p>"It is our choices that show who we truly are."</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Move Log & Commentary -->
+          <div class="move-log-panel">
+            <div class="panel-title">
+              <span>📜 Duel History</span>
+              <span id="captured-summary">Captured: White 0 | Black 0</span>
+            </div>
+            <div id="move-history" class="move-history-box">
+              <div class="placeholder-text">Moves will appear here as spell tokens are moved...</div>
+            </div>
+            <div id="ai-commentary" class="ai-commentary">
+              <span class="quote-icon">"</span>
+              <span id="commentary-text">Select your opponent and make your first move!</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: DAILY PUZZLES -->
+        <div id="tab-puzzles" class="tab-content">
+          <div class="panel-header">
+            <h2>Enchanted Puzzles</h2>
+            <p>Master tactical spells: Mates, Forks, Pins & Skewers</p>
+          </div>
+
+          <div class="puzzle-stats-bar">
+            <div class="stat-card">
+              <span class="stat-value" id="puzzle-streak">0 🔥</span>
+              <span class="stat-label">Daily Streak</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-value" id="puzzle-rating">1200 ⚡</span>
+              <span class="stat-label">Wizard Score</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-value" id="puzzles-solved">0/0 🎯</span>
+              <span class="stat-label">Solved</span>
+            </div>
+          </div>
+
+          <div class="puzzle-selector">
+            <button class="puzzle-category-btn active" data-category="mate1">Mate in 1</button>
+            <button class="puzzle-category-btn" data-category="mate2">Mate in 2</button>
+            <button class="puzzle-category-btn" data-category="fork">Knight Forks</button>
+            <button class="puzzle-category-btn" data-category="pin">Pins & Skewers</button>
+            <button class="puzzle-category-btn" data-category="endgame">Endgame</button>
+          </div>
+
+          <div class="puzzle-info-card">
+            <div class="puzzle-badge" id="puzzle-theme-badge">Mating Net</div>
+            <h3 id="puzzle-title">Back-Rank Spellmate</h3>
+            <p id="puzzle-desc">Find the winning spell sequence for White!</p>
+            <div id="puzzle-status" class="puzzle-status"></div>
+            
+            <div class="puzzle-action-buttons">
+              <button id="next-puzzle-btn" class="primary-btn">
+                ⚡ Next Puzzle
+              </button>
+              <button id="solve-reveal-btn" class="secondary-btn">
+                👁️ Reveal Spell Solution
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: TRAINING ACADEMY -->
+        <div id="tab-academy" class="tab-content">
+          <div class="panel-header">
+            <h2>Grand Academy</h2>
+            <p>Interactive lessons in Openings, Middlegames & Endgames</p>
+          </div>
+
+          <div class="academy-category-tabs">
+            <button class="acad-tab-btn active" data-section="openings">🛡️ Openings</button>
+            <button class="acad-tab-btn" data-section="middlegames">⚔️ Middlegames</button>
+            <button class="acad-tab-btn" data-section="endgames">👑 Endgames</button>
+          </div>
+
+          <!-- Academy Content Box -->
+          <div id="academy-lesson-container" class="academy-container">
+            <!-- Dynamically populated lessons -->
+          </div>
+        </div>
+
+        <!-- TAB 4: GAME ANALYSIS -->
+        <div id="tab-analysis" class="tab-content">
+          <div class="panel-header">
+            <h2>Engine Analysis Room</h2>
+            <p>Evaluate positions, analyze PGNs, and review blunders</p>
+          </div>
+
+          <div class="analysis-controls">
+            <div class="input-group">
+              <label for="fen-input">FEN Position String</label>
+              <div class="flex-row">
+                <input type="text" id="fen-input" placeholder="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" />
+                <button id="load-fen-btn" class="secondary-btn">Load FEN</button>
+              </div>
+            </div>
+
+            <div class="input-group">
+              <label for="pgn-input">Paste PGN Game Transcript</label>
+              <textarea id="pgn-input" rows="3" placeholder="1. e4 e5 2. Nf3 Nc6 3. Bb5 ..."></textarea>
+              <button id="load-pgn-btn" class="primary-btn">Analyze Full PGN</button>
+            </div>
+
+            <div class="analysis-summary-card">
+              <div class="summary-item">
+                <span class="label">Evaluation:</span>
+                <span class="value" id="analysis-eval">+0.0</span>
+              </div>
+              <div class="summary-item">
+                <span class="label">Best Engine Move:</span>
+                <span class="value highlight" id="analysis-best-move">-</span>
+              </div>
+              <div class="summary-item">
+                <span class="label">Classification:</span>
+                <span class="value" id="analysis-classification">Starting Position</span>
+              </div>
+            </div>
+
+            <div class="replay-controls">
+              <button id="step-first" class="icon-btn" title="First Move">⏮️</button>
+              <button id="step-prev" class="icon-btn" title="Previous Move">◀️</button>
+              <button id="step-next" class="icon-btn" title="Next Move">▶️</button>
+              <button id="step-last" class="icon-btn" title="Last Move">⏭️</button>
+              <button id="auto-play-btn" class="icon-btn" title="Autoplay">⏯️</button>
+            </div>
+          </div>
+        </div>
+
+      </aside>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <span>Harry Potter Wizard's Chess Academy • Built for Daily Chess Practice & Analysis</span>
+    </footer>
+  </div>
+
+</body>
+</html>
