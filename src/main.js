@@ -439,6 +439,20 @@ class WizardApp {
       });
     });
 
+    // Variation Selector Dropdown
+    const varSelect = document.getElementById('tutor-variation-select');
+    varSelect?.addEventListener('change', (e) => {
+      soundEngine.playSpellSelectSound();
+      const varId = e.target.value;
+      if (this.activeLesson && this.activeLesson.variations) {
+        const found = this.activeLesson.variations.find(v => v.id === varId);
+        if (found) {
+          this.activeVariation = found;
+          this.applyAcademyStep(0);
+        }
+      }
+    });
+
     // Voice Tutor Control Buttons
     const toggleVoiceBtn = document.getElementById('tutor-voice-toggle');
     toggleVoiceBtn?.addEventListener('click', () => {
@@ -462,7 +476,8 @@ class WizardApp {
 
     document.getElementById('tutor-next')?.addEventListener('click', () => {
       soundEngine.playSpellSelectSound();
-      if (this.activeLesson && this.activeLesson.moveSequence && this.activeLessonStep < this.activeLesson.moveSequence.length - 1) {
+      const seq = this.getActiveSequence();
+      if (seq && this.activeLessonStep < seq.length - 1) {
         this.applyAcademyStep(this.activeLessonStep + 1);
       }
     });
@@ -477,16 +492,27 @@ class WizardApp {
       } else {
         autoBtn.classList.add('active');
         this.tutorAutoplayTimer = setInterval(() => {
-          if (this.activeLesson && this.activeLesson.moveSequence && this.activeLessonStep < this.activeLesson.moveSequence.length - 1) {
+          const seq = this.getActiveSequence();
+          if (seq && this.activeLessonStep < seq.length - 1) {
             this.applyAcademyStep(this.activeLessonStep + 1);
           } else {
             clearInterval(this.tutorAutoplayTimer);
             this.tutorAutoplayTimer = null;
             autoBtn.classList.remove('active');
           }
-        }, 4500); // 4.5 seconds per move explanation
+        }, 4500);
       }
     });
+  }
+
+  getActiveSequence() {
+    if (this.activeVariation && this.activeVariation.moveSequence) {
+      return this.activeVariation.moveSequence;
+    }
+    if (this.activeLesson && this.activeLesson.moveSequence) {
+      return this.activeLesson.moveSequence;
+    }
+    return [];
   }
 
   renderAcademySection(section) {
@@ -499,11 +525,11 @@ class WizardApp {
     lessons.forEach((lesson, index) => {
       const card = document.createElement('div');
       card.className = `lesson-card ${index === 0 ? 'active' : ''}`;
-      const moveList = lesson.moveSequence ? lesson.moveSequence.map(m => m.san).join(' ') : (lesson.moves || []).join(' ');
+      const varCount = lesson.variations ? lesson.variations.length : 1;
       card.innerHTML = `
         <h4>${lesson.title}</h4>
         <p>${lesson.description}</p>
-        <div class="lesson-moves">Line: ${moveList}</div>
+        <div class="lesson-moves">Available Sub-Lines: ${varCount} variation(s)</div>
       `;
 
       card.addEventListener('click', () => {
@@ -523,14 +549,33 @@ class WizardApp {
 
   loadAcademyLesson(lesson) {
     this.activeLesson = lesson;
+    const varSelect = document.getElementById('tutor-variation-select');
+
+    if (varSelect) {
+      varSelect.innerHTML = '';
+      if (lesson.variations && lesson.variations.length > 0) {
+        lesson.variations.forEach(v => {
+          const opt = document.createElement('option');
+          opt.value = v.id;
+          opt.textContent = v.name;
+          varSelect.appendChild(opt);
+        });
+        this.activeVariation = lesson.variations[0];
+        varSelect.style.display = 'inline-block';
+      } else {
+        this.activeVariation = null;
+        varSelect.style.display = 'none';
+      }
+    }
+
     this.applyAcademyStep(0);
   }
 
   applyAcademyStep(stepIndex) {
-    if (!this.activeLesson || !this.activeLesson.moveSequence) return;
+    const sequence = this.getActiveSequence();
+    if (!sequence || sequence.length === 0) return;
 
-    this.activeLessonStep = Math.max(0, Math.min(stepIndex, this.activeLesson.moveSequence.length - 1));
-    const sequence = this.activeLesson.moveSequence;
+    this.activeLessonStep = Math.max(0, Math.min(stepIndex, sequence.length - 1));
 
     // Reset game and play moves up to stepIndex
     this.game.reset();
@@ -553,7 +598,9 @@ class WizardApp {
     const speechEl = document.getElementById('tutor-speech-text');
     const tipEl = document.getElementById('tutor-tip-text');
 
-    if (titleEl) titleEl.textContent = this.activeLesson.title;
+    const varTitle = this.activeVariation ? `${this.activeLesson.title} — ${this.activeVariation.name}` : this.activeLesson.title;
+
+    if (titleEl) titleEl.textContent = varTitle;
     if (badgeEl) badgeEl.textContent = `Move Step ${this.activeLessonStep + 1} of ${sequence.length}: ${currentData.title}`;
     if (speechEl) speechEl.textContent = `"${currentData.speech}"`;
     if (tipEl) tipEl.textContent = `💡 Tip: ${currentData.tip}`;
@@ -717,7 +764,15 @@ class WizardApp {
   }
 }
 
-// Instantiate App when DOM loads
-window.addEventListener('DOMContentLoaded', () => {
-  window.wizardApp = new WizardApp();
-});
+// Guaranteed App Initialization (handles deferred ES modules & readyState)
+function initWizardApp() {
+  if (!window.wizardApp) {
+    window.wizardApp = new WizardApp();
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initWizardApp);
+} else {
+  initWizardApp();
+}

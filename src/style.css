@@ -854,6 +854,23 @@ body {
   color: var(--gold-light);
 }
 
+.variation-select {
+  background: rgba(10, 14, 25, 0.95);
+  border: 1px solid var(--gold-primary);
+  color: var(--gold-light);
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+}
+
+.variation-select option {
+  background: #0d111d;
+  color: #fff;
+}
+
 .voice-toggle-btn {
   background: rgba(20, 25, 45, 0.8);
   border: 1px solid var(--border-gold);
