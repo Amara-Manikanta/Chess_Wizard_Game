@@ -356,59 +356,42 @@ body {
   right: 4px;
 }
 
-/* Piece styling */
+/* Piece styling - Standard Staunton Vector Graphics */
 .piece {
-  width: 82%;
-  height: 82%;
+  width: 90%;
+  height: 90%;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   z-index: 10;
-  border-radius: 50%;
   position: relative;
+  background: transparent;
 }
 
 .piece svg {
-  width: 85%;
-  height: 85%;
+  width: 92%;
+  height: 92%;
   pointer-events: none;
 }
 
-/* WHITE PIECE STYLING: Radiant Pearl & Gold */
-.piece.white-piece {
-  color: #ffffff;
-  background: radial-gradient(circle at 35% 35%, #ffffff 0%, #e6d08d 70%, #b8860b 100%);
-  border: 2px solid #fff5cc;
-  box-shadow: 
-    0 0 12px rgba(255, 235, 150, 0.9),
-    0 4px 10px rgba(0, 0, 0, 0.7);
-  -webkit-text-stroke: 1px #4a3b0a;
-}
-
+/* WHITE PIECE STYLING: Clean Radiant White with Gold Glow */
 .piece.white-piece svg {
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+  filter: 
+    drop-shadow(0 0 6px rgba(255, 235, 170, 0.8))
+    drop-shadow(0 4px 6px rgba(0, 0, 0, 0.7));
 }
 
-/* BLACK PIECE STYLING: Deep Obsidian & Mystic Violet */
-.piece.black-piece {
-  color: #0d0f18;
-  background: radial-gradient(circle at 35% 35%, #2a2d45 0%, #10121e 70%, #05060a 100%);
-  border: 2px solid #d4af37;
-  box-shadow: 
-    0 0 14px rgba(157, 80, 187, 0.9),
-    0 0 6px rgba(255, 75, 43, 0.6),
-    0 4px 10px rgba(0, 0, 0, 0.9);
-  -webkit-text-stroke: 1.5px #d4af37;
-}
-
+/* BLACK PIECE STYLING: Deep Obsidian with Golden Outline */
 .piece.black-piece svg {
-  filter: drop-shadow(0 0 6px #9d50bb);
+  filter: 
+    drop-shadow(0 0 8px rgba(212, 175, 55, 0.8))
+    drop-shadow(0 4px 8px rgba(0, 0, 0, 0.9));
 }
 
 .piece:hover {
   transform: scale(1.18) translateY(-4px);
-  box-shadow: 0 0 20px var(--gold-primary);
+  filter: drop-shadow(0 0 12px var(--gold-primary));
 }
 
 .piece.levitating {
