@@ -3,10 +3,24 @@
 import { soundEngine } from './audio.js';
 import { particleEngine } from './particles.js';
 
-// Unicode carved stone piece representations
-const PIECE_UNICODE = {
-  w: { p: '♙', r: '♖', n: '♘', b: '♗', q: '♕', k: '♔' },
-  b: { p: '♟', r: '♜', n: '♞', b: '♝', q: '♛', k: '♚' }
+// SVG vector piece representations with distinct White (Ivory/Gold) vs Black (Obsidian/Violet) graphics
+const PIECE_SVGS = {
+  w: {
+    p: '<svg viewBox="0 0 45 45"><path d="M22.5 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38C17.33 16.5 16 18.59 16 21c0 2.03.94 3.84 2.41 5.03-3 1.06-5.41 3.32-6.41 6.47h20.99c-1-3.15-3.41-5.41-6.41-6.47 1.47-1.19 2.41-3 2.41-5.03 0-2.41-1.33-4.5-3.28-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z" fill="#FFF8E7" stroke="#3a2e05" stroke-width="1.5"/></svg>',
+    r: '<svg viewBox="0 0 45 45"><path d="M9 39h27v-3H9v3zm3-3h21v-4H12v4zm0-23h3v5h3v-5h3v5h3v-5h3v5h3v-5h3v9H12v-9zm2 10h17v7H14v-7z" fill="#FFF8E7" stroke="#3a2e05" stroke-width="1.5"/></svg>',
+    n: '<svg viewBox="0 0 45 45"><path d="M22 10c-3 0-6 2-7 5-2 1-3 4-2 7 1 2 3 3 5 3 0 2 2 4 4 4s4-2 4-4c2 0 4-1 5-3 1-3 0-6-2-7-1-3-4-5-7-5z" fill="#FFF8E7" stroke="#3a2e05" stroke-width="1.5"/></svg>',
+    b: '<svg viewBox="0 0 45 45"><path d="M22.5 6c-3 0-5 3-5 7 0 2 1 4 2 5-3 2-4.5 5-4.5 9h15c0-4-1.5-7-4.5-9 1-1 2-3 2-5 0-4-2-7-5-7z" fill="#FFF8E7" stroke="#3a2e05" stroke-width="1.5"/></svg>',
+    q: '<svg viewBox="0 0 45 45"><path d="M9 26c0 2 1.5 4 3.5 4h20c2 0 3.5-2 3.5-4L38 14l-6 5-4.5-8L22.5 17 18 11l-4.5 8L7.5 14 9 26z" fill="#FFF8E7" stroke="#3a2e05" stroke-width="1.5"/></svg>',
+    k: '<svg viewBox="0 0 45 45"><path d="M22.5 6v3m-2-1.5h4M22.5 11c-4 0-7 3-7 7 0 3 2 5 4 7h6c2-2 4-4 4-7 0-4-3-7-7-7z" fill="#FFF8E7" stroke="#3a2e05" stroke-width="1.5"/></svg>'
+  },
+  b: {
+    p: '<svg viewBox="0 0 45 45"><path d="M22.5 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38C17.33 16.5 16 18.59 16 21c0 2.03.94 3.84 2.41 5.03-3 1.06-5.41 3.32-6.41 6.47h20.99c-1-3.15-3.41-5.41-6.41-6.47 1.47-1.19 2.41-3 2.41-5.03 0-2.41-1.33-4.5-3.28-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z" fill="#0f111a" stroke="#d4af37" stroke-width="2"/></svg>',
+    r: '<svg viewBox="0 0 45 45"><path d="M9 39h27v-3H9v3zm3-3h21v-4H12v4zm0-23h3v5h3v-5h3v5h3v-5h3v5h3v-5h3v9H12v-9zm2 10h17v7H14v-7z" fill="#0f111a" stroke="#d4af37" stroke-width="2"/></svg>',
+    n: '<svg viewBox="0 0 45 45"><path d="M22 10c-3 0-6 2-7 5-2 1-3 4-2 7 1 2 3 3 5 3 0 2 2 4 4 4s4-2 4-4c2 0 4-1 5-3 1-3 0-6-2-7-1-3-4-5-7-5z" fill="#0f111a" stroke="#d4af37" stroke-width="2"/></svg>',
+    b: '<svg viewBox="0 0 45 45"><path d="M22.5 6c-3 0-5 3-5 7 0 2 1 4 2 5-3 2-4.5 5-4.5 9h15c0-4-1.5-7-4.5-9 1-1 2-3 2-5 0-4-2-7-5-7z" fill="#0f111a" stroke="#d4af37" stroke-width="2"/></svg>',
+    q: '<svg viewBox="0 0 45 45"><path d="M9 26c0 2 1.5 4 3.5 4h20c2 0 3.5-2 3.5-4L38 14l-6 5-4.5-8L22.5 17 18 11l-4.5 8L7.5 14 9 26z" fill="#0f111a" stroke="#d4af37" stroke-width="2"/></svg>',
+    k: '<svg viewBox="0 0 45 45"><path d="M22.5 6v3m-2-1.5h4M22.5 11c-4 0-7 3-7 7 0 3 2 5 4 7h6c2-2 4-4 4-7 0-4-3-7-7-7z" fill="#0f111a" stroke="#d4af37" stroke-width="2"/></svg>'
+  }
 };
 
 export class WizardBoard {
@@ -112,7 +126,7 @@ export class WizardBoard {
         if (piece) {
           const pieceEl = document.createElement('div');
           pieceEl.className = `piece ${piece.color === 'w' ? 'white-piece' : 'black-piece'}`;
-          pieceEl.textContent = PIECE_UNICODE[piece.color][piece.type];
+          pieceEl.innerHTML = PIECE_SVGS[piece.color][piece.type];
 
           if (this.selectedSquare === squareName) {
             pieceEl.classList.add('levitating');
@@ -141,9 +155,18 @@ export class WizardBoard {
     }
 
     // If clicking on a legal target move square
-    const move = this.legalMoves.find(m => m.to === squareName);
-    if (move) {
-      this.executeWizardMove(move);
+    const matchingMoves = this.legalMoves.filter(m => m.to === squareName);
+    if (matchingMoves.length > 0) {
+      // Check if any matching move requires promotion
+      const promoMove = matchingMoves.find(m => m.promotion);
+      if (promoMove && this.onPromotionRequired) {
+        this.onPromotionRequired(promoMove, (chosenPiece) => {
+          const finalMove = matchingMoves.find(m => m.promotion === chosenPiece) || promoMove;
+          this.executeWizardMove(finalMove);
+        });
+      } else {
+        this.executeWizardMove(matchingMoves[0]);
+      }
       return;
     }
 

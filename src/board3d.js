@@ -336,9 +336,17 @@ export class WizardBoard3D {
       return;
     }
 
-    const move = this.legalMoves.find(m => m.to === squareName);
-    if (move) {
-      this.executeWizardMove(move);
+    const matchingMoves = this.legalMoves.filter(m => m.to === squareName);
+    if (matchingMoves.length > 0) {
+      const promoMove = matchingMoves.find(m => m.promotion);
+      if (promoMove && this.onPromotionRequired) {
+        this.onPromotionRequired(promoMove, (chosenPiece) => {
+          const finalMove = matchingMoves.find(m => m.promotion === chosenPiece) || promoMove;
+          this.executeWizardMove(finalMove);
+        });
+      } else {
+        this.executeWizardMove(matchingMoves[0]);
+      }
       return;
     }
 

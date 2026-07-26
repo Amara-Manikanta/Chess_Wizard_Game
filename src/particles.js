@@ -73,6 +73,31 @@ class ParticleEngine {
     }
   }
 
+  // Celebration Confetti Burst
+  createConfettiBurst() {
+    const count = 120;
+    const colors = ['#d4af37', '#f3e5ab', '#38ef7d', '#00d2ff', '#9d50bb', '#ff4b2b', '#ffffff'];
+
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = Math.random() * 12 + 4;
+      this.particles.push({
+        x: this.canvas ? this.canvas.width / 2 : window.innerWidth / 2,
+        y: this.canvas ? this.canvas.height / 3 : window.innerHeight / 3,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 4, // strong upward launch
+        size: Math.random() * 8 + 4,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        alpha: 1,
+        life: 1,
+        decay: Math.random() * 0.015 + 0.005, // longer floating life
+        isStoneFragment: true,
+        rotation: Math.random() * Math.PI * 2,
+        vRot: (Math.random() - 0.5) * 0.3
+      });
+    }
+  }
+
   // Create Lumos hint highlight sparkle beam
   createLumosBeam(x, y) {
     for (let i = 0; i < 25; i++) {

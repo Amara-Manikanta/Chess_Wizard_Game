@@ -182,6 +182,54 @@ class SoundEngine {
       osc.stop(now + idx * 0.08 + 0.5);
     });
   }
+
+  // Triumphant Victory Fanfare
+  playVictoryFanfare() {
+    if (this.muted) return;
+    this.init();
+
+    const now = this.ctx.currentTime;
+    const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51]; // C5, E5, G5, C6, E6
+    notes.forEach((freq, idx) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, now + idx * 0.1);
+
+      gain.gain.setValueAtTime(0.3, now + idx * 0.1);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.1 + 0.8);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(now + idx * 0.1);
+      osc.stop(now + idx * 0.1 + 0.8);
+    });
+  }
+
+  // Eerie Defeat Sound
+  playDefeatSound() {
+    if (this.muted) return;
+    this.init();
+
+    const now = this.ctx.currentTime;
+    const notes = [440, 415.30, 392.00, 349.23]; // A4, G#4, G4, F4 minor descent
+    notes.forEach((freq, idx) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(freq, now + idx * 0.15);
+
+      gain.gain.setValueAtTime(0.25, now + idx * 0.15);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.15 + 0.6);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(now + idx * 0.15);
+      osc.stop(now + idx * 0.15 + 0.6);
+    });
+  }
 }
 
 export const soundEngine = new SoundEngine();

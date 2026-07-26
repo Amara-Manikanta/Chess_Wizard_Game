@@ -54,9 +54,81 @@ class WizardApp {
     // 9. Bind Analysis Tools
     this.bindAnalysis();
 
-    // 10. Initial State Update
+    // 10. Bind Promotion & Celebration Modals
+    this.bindPromotionModal();
+    this.bindGameOverModal();
+
+    // 11. Initial State Update
     this.updateEvaluationBar();
     this.updateMoveHistoryUI();
+  }
+
+  // --- PROMOTION MODAL HANDLER ---
+  bindPromotionModal() {
+    const modal = document.getElementById('promotion-modal');
+    const promoBtns = document.querySelectorAll('.promo-btn');
+
+    const handlePromotion = (move, callback) => {
+      modal.classList.remove('hidden');
+
+      const onChoice = (e) => {
+        const piece = e.currentTarget.dataset.piece || 'q';
+        modal.classList.add('hidden');
+        promoBtns.forEach(b => b.removeEventListener('click', onChoice));
+        callback(piece);
+      };
+
+      promoBtns.forEach(b => b.addEventListener('click', onChoice));
+    };
+
+    this.board2d.onPromotionRequired = handlePromotion;
+    this.board3d.onPromotionRequired = handlePromotion;
+  }
+
+  // --- GAME OVER CELEBRATION MODAL ---
+  bindGameOverModal() {
+    const modal = document.getElementById('game-over-modal');
+    document.getElementById('modal-restart-btn')?.addEventListener('click', () => {
+      modal.classList.add('hidden');
+      this.resetGame();
+    });
+
+    document.getElementById('modal-analyze-btn')?.addEventListener('click', () => {
+      modal.classList.add('hidden');
+      const analysisNav = document.querySelector('.nav-btn[data-tab="analysis"]');
+      if (analysisNav) analysisNav.click();
+    });
+  }
+
+  showGameOverCelebration(isVictory) {
+    const modal = document.getElementById('game-over-modal');
+    const badge = document.getElementById('modal-badge');
+    const title = document.getElementById('modal-title');
+    const msg = document.getElementById('modal-message');
+    const movesStat = document.getElementById('modal-stat-moves');
+    const opponentStat = document.getElementById('modal-stat-opponent');
+
+    if (!modal) return;
+
+    if (isVictory) {
+      badge.className = 'celebration-badge victory';
+      badge.textContent = '🏆 VICTORY!';
+      title.textContent = 'Checkmate Victory!';
+      msg.textContent = `You have defeated ${this.getAiName(this.aiOpponent)} with spellbinding precision!`;
+      soundEngine.playVictoryFanfare();
+      particleEngine.createConfettiBurst();
+    } else {
+      badge.className = 'celebration-badge defeat';
+      badge.textContent = '💀 DEFEAT';
+      title.textContent = 'Wizard Duel Lost!';
+      msg.textContent = `${this.getAiName(this.aiOpponent)} claimed victory this time. Re-arm your strategy and try again!`;
+      soundEngine.playDefeatSound();
+    }
+
+    if (movesStat) movesStat.textContent = this.game.history().length;
+    if (opponentStat) opponentStat.textContent = this.getAiName(this.aiOpponent);
+
+    modal.classList.remove('hidden');
   }
 
   // --- NAVIGATION & TABS ---
@@ -216,8 +288,8 @@ class WizardApp {
 
     // Check game over
     if (this.game.isCheckmate()) {
-      soundEngine.playPuzzleSuccessSound();
       this.updateCommentary('⚡ CHECKMATE! Victory has been claimed on the enchanted board!');
+      this.showGameOverCelebration(true); // User White Wins!
       return;
     } else if (this.game.isDraw()) {
       this.updateCommentary('Stalemate! The duel ends in an honorable draw.');
@@ -249,6 +321,7 @@ class WizardApp {
 
     if (this.game.isCheckmate()) {
       this.updateCommentary(`⚡ CHECKMATE! ${this.getAiName(this.aiOpponent)} wins the duel!`);
+      this.showGameOverCelebration(false); // AI Wins -> User Defeat
     } else if (this.game.inCheck()) {
       this.updateCommentary(`Check! ${this.getAiName(this.aiOpponent)} puts your King under attack!`);
     } else {

@@ -273,6 +273,61 @@
     </footer>
   </div>
 
+  <!-- PAWN PROMOTION MODAL -->
+  <div id="promotion-modal" class="modal-overlay hidden">
+    <div class="modal-card promotion-card">
+      <h3>⚡ Pawn Promotion Spell</h3>
+      <p>Choose the spell transformation for your promoted Pawn:</p>
+      <div class="promotion-options">
+        <button class="promo-btn" data-piece="q" title="Queen">
+          <span class="promo-icon">♕</span>
+          <span class="promo-name">Queen</span>
+        </button>
+        <button class="promo-btn" data-piece="r" title="Rook">
+          <span class="promo-icon">♖</span>
+          <span class="promo-name">Rook</span>
+        </button>
+        <button class="promo-btn" data-piece="b" title="Bishop">
+          <span class="promo-icon">♗</span>
+          <span class="promo-name">Bishop</span>
+        </button>
+        <button class="promo-btn" data-piece="n" title="Knight">
+          <span class="promo-icon">♘</span>
+          <span class="promo-name">Knight</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GAME OVER / CELEBRATION MODAL -->
+  <div id="game-over-modal" class="modal-overlay hidden">
+    <div class="modal-card game-over-card" id="game-over-card-inner">
+      <div class="celebration-badge" id="modal-badge">🏆 VICTORY</div>
+      <h2 id="modal-title">Checkmate Victory!</h2>
+      <p id="modal-message">You have defeated the enemy wizard on the enchanted board!</p>
+      
+      <div class="game-over-stats">
+        <div class="stat-pill">
+          <span class="label">Total Moves</span>
+          <span class="val" id="modal-stat-moves">0</span>
+        </div>
+        <div class="stat-pill">
+          <span class="label">Opponent</span>
+          <span class="val" id="modal-stat-opponent">Ron Weasley</span>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button id="modal-restart-btn" class="primary-btn">
+          ⚔️ Play Again
+        </button>
+        <button id="modal-analyze-btn" class="secondary-btn">
+          🔍 Analyze Game
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>
