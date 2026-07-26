@@ -55,7 +55,7 @@ body {
   width: 100vw;
   height: 100vh;
   pointer-events: none;
-  z-index: 999;
+  z-index: 1;
 }
 
 /* App Container */
@@ -66,6 +66,8 @@ body {
   max-width: 1500px;
   margin: 0 auto;
   padding: 0 1rem;
+  position: relative;
+  z-index: 2;
 }
 
 /* Header */

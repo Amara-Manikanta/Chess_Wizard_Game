@@ -49,8 +49,19 @@ export class AnalysisEngine {
     this.analysisGame.reset();
     const targetStep = Math.max(-1, Math.min(stepIndex, this.historyMoves.length - 1));
     for (let i = 0; i <= targetStep; i++) {
-      if (this.historyMoves[i]) {
-        this.analysisGame.move(this.historyMoves[i]);
+      const m = this.historyMoves[i];
+      if (m) {
+        try {
+          if (typeof m === 'string') {
+            this.analysisGame.move(m);
+          } else if (m.san) {
+            this.analysisGame.move(m.san);
+          } else if (m.from && m.to) {
+            this.analysisGame.move({ from: m.from, to: m.to, promotion: m.promotion || 'q' });
+          }
+        } catch (err) {
+          console.warn('Replay step move error:', err);
+        }
       }
     }
     this.currentStep = targetStep;
