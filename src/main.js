@@ -1,5 +1,6 @@
 // Main App Orchestrator for 3D Wizard's Chess & Learning Academy
 
+import './style.css';
 import { Chess } from 'chess.js';
 import { WizardBoard } from './board.js';
 import { WizardBoard3D } from './board3d.js';
