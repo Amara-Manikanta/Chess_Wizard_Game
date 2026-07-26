@@ -812,6 +812,111 @@ body {
   margin-top: 0.4rem;
 }
 
+/* Voice Guided Tutor Panel */
+.voice-tutor-panel {
+  margin-top: 1rem;
+  background: rgba(15, 18, 30, 0.9);
+  border: 1px solid var(--border-gold);
+  border-radius: 12px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+}
+
+.tutor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tutor-title {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.voice-badge {
+  font-size: 0.7rem;
+  background: rgba(212, 175, 55, 0.15);
+  border: 1px solid var(--gold-primary);
+  color: var(--gold-primary);
+  padding: 0.15rem 0.5rem;
+  border-radius: 20px;
+  align-self: flex-start;
+  font-weight: 600;
+}
+
+.tutor-title h3 {
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  color: var(--gold-light);
+}
+
+.voice-toggle-btn {
+  background: rgba(20, 25, 45, 0.8);
+  border: 1px solid var(--border-gold);
+  color: var(--gold-primary);
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.voice-toggle-btn:hover {
+  background: var(--gold-primary);
+  color: #000;
+}
+
+.voice-toggle-btn.muted {
+  border-color: #666;
+  color: #999;
+}
+
+.tutor-step-card {
+  background: rgba(8, 10, 18, 0.85);
+  border-left: 4px solid var(--gold-primary);
+  border-radius: 8px;
+  padding: 0.8rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.tutor-step-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--accent-cyan);
+}
+
+.tutor-speech-bubble {
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--text-main);
+  font-style: italic;
+}
+
+.tutor-tip-text {
+  font-size: 0.8rem;
+  color: var(--gold-primary);
+}
+
+.tutor-controls {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.tutor-controls button {
+  flex: 1;
+  min-width: 90px;
+  padding: 0.5rem;
+  font-size: 0.8rem;
+}
+
 /* Game Analysis styling */
 .analysis-controls {
   display: flex;

@@ -428,6 +428,67 @@ class WizardApp {
     });
   }
 
+  bindAcademy() {
+    document.querySelectorAll('.acad-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.acad-tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        soundEngine.playSpellSelectSound();
+        const sec = btn.dataset.section || 'openings';
+        this.renderAcademySection(sec);
+      });
+    });
+
+    // Voice Tutor Control Buttons
+    const toggleVoiceBtn = document.getElementById('tutor-voice-toggle');
+    toggleVoiceBtn?.addEventListener('click', () => {
+      this.voiceTutorEnabled = !this.voiceTutorEnabled;
+      toggleVoiceBtn.classList.toggle('muted', !this.voiceTutorEnabled);
+      toggleVoiceBtn.textContent = this.voiceTutorEnabled ? '🔊 Voice: ON' : '🔇 Voice: OFF';
+      if (!this.voiceTutorEnabled) soundEngine.stopSpeech();
+    });
+
+    document.getElementById('tutor-reset')?.addEventListener('click', () => {
+      soundEngine.playSpellSelectSound();
+      this.applyAcademyStep(0);
+    });
+
+    document.getElementById('tutor-prev')?.addEventListener('click', () => {
+      soundEngine.playSpellSelectSound();
+      if (this.activeLessonStep > 0) {
+        this.applyAcademyStep(this.activeLessonStep - 1);
+      }
+    });
+
+    document.getElementById('tutor-next')?.addEventListener('click', () => {
+      soundEngine.playSpellSelectSound();
+      if (this.activeLesson && this.activeLesson.moveSequence && this.activeLessonStep < this.activeLesson.moveSequence.length - 1) {
+        this.applyAcademyStep(this.activeLessonStep + 1);
+      }
+    });
+
+    const autoBtn = document.getElementById('tutor-autoplay');
+    autoBtn?.addEventListener('click', () => {
+      soundEngine.playSpellSelectSound();
+      if (this.tutorAutoplayTimer) {
+        clearInterval(this.tutorAutoplayTimer);
+        this.tutorAutoplayTimer = null;
+        autoBtn.classList.remove('active');
+      } else {
+        autoBtn.classList.add('active');
+        this.tutorAutoplayTimer = setInterval(() => {
+          if (this.activeLesson && this.activeLesson.moveSequence && this.activeLessonStep < this.activeLesson.moveSequence.length - 1) {
+            this.applyAcademyStep(this.activeLessonStep + 1);
+          } else {
+            clearInterval(this.tutorAutoplayTimer);
+            this.tutorAutoplayTimer = null;
+            autoBtn.classList.remove('active');
+          }
+        }, 4500); // 4.5 seconds per move explanation
+      }
+    });
+  }
+
   renderAcademySection(section) {
     const container = document.getElementById('academy-lesson-container');
     if (!container) return;
@@ -438,10 +499,11 @@ class WizardApp {
     lessons.forEach((lesson, index) => {
       const card = document.createElement('div');
       card.className = `lesson-card ${index === 0 ? 'active' : ''}`;
+      const moveList = lesson.moveSequence ? lesson.moveSequence.map(m => m.san).join(' ') : (lesson.moves || []).join(' ');
       card.innerHTML = `
         <h4>${lesson.title}</h4>
         <p>${lesson.description}</p>
-        <div class="lesson-moves">Sequence: ${lesson.moves.join(' ')}</div>
+        <div class="lesson-moves">Line: ${moveList}</div>
       `;
 
       card.addEventListener('click', () => {
@@ -460,15 +522,46 @@ class WizardApp {
   }
 
   loadAcademyLesson(lesson) {
-    if (lesson.fen) {
-      this.game.load(lesson.fen);
-    } else {
-      this.game.reset();
+    this.activeLesson = lesson;
+    this.applyAcademyStep(0);
+  }
+
+  applyAcademyStep(stepIndex) {
+    if (!this.activeLesson || !this.activeLesson.moveSequence) return;
+
+    this.activeLessonStep = Math.max(0, Math.min(stepIndex, this.activeLesson.moveSequence.length - 1));
+    const sequence = this.activeLesson.moveSequence;
+
+    // Reset game and play moves up to stepIndex
+    this.game.reset();
+    for (let i = 0; i <= this.activeLessonStep; i++) {
+      if (sequence[i] && sequence[i].san) {
+        try {
+          this.game.move(sequence[i].san);
+        } catch (e) {
+          console.warn('Academy move error:', e);
+        }
+      }
     }
 
     this.activeBoard.attachGame(this.game);
     this.updateEvaluationBar();
-    this.updateCommentary(`📖 Academy Lesson: ${lesson.title}. ${lesson.tips}`);
+
+    const currentData = sequence[this.activeLessonStep];
+    const titleEl = document.getElementById('tutor-lesson-title');
+    const badgeEl = document.getElementById('tutor-step-badge');
+    const speechEl = document.getElementById('tutor-speech-text');
+    const tipEl = document.getElementById('tutor-tip-text');
+
+    if (titleEl) titleEl.textContent = this.activeLesson.title;
+    if (badgeEl) badgeEl.textContent = `Move Step ${this.activeLessonStep + 1} of ${sequence.length}: ${currentData.title}`;
+    if (speechEl) speechEl.textContent = `"${currentData.speech}"`;
+    if (tipEl) tipEl.textContent = `💡 Tip: ${currentData.tip}`;
+
+    // Speak explanation out loud line by line!
+    if (this.voiceTutorEnabled) {
+      soundEngine.speakExplanation(currentData.speech);
+    }
   }
 
   // --- GAME ANALYSIS ---

@@ -230,6 +230,32 @@ class SoundEngine {
       osc.stop(now + idx * 0.15 + 0.6);
     });
   }
+
+  // Web Speech API Text-to-Speech Tutor Voice
+  speakExplanation(text) {
+    if (this.muted || !('speechSynthesis' in window)) return;
+
+    this.stopSpeech();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.95; // Clear articulation
+    utterance.pitch = 1.0;
+
+    // Pick English UK / English US voice if available
+    const voices = window.speechSynthesis.getVoices();
+    const tutorVoice = voices.find(v => v.lang.startsWith('en-GB') || v.lang.startsWith('en-US')) || voices[0];
+    if (tutorVoice) {
+      utterance.voice = tutorVoice;
+    }
+
+    window.speechSynthesis.speak(utterance);
+  }
+
+  stopSpeech() {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+  }
 }
 
 export const soundEngine = new SoundEngine();

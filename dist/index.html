@@ -7,8 +7,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <script type="module" crossorigin src="./assets/index-DsY-YcPk.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-DbSA18TD.css">
+  <script type="module" crossorigin src="./assets/index-DkWmExOV.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-CJR4dGI2.css">
 </head>
 <body>
   <!-- Ambient Particle Canvas for Floating Magic & Spell FX -->
@@ -215,6 +215,34 @@
           <!-- Academy Content Box -->
           <div id="academy-lesson-container" class="academy-container">
             <!-- Dynamically populated lessons -->
+          </div>
+
+          <!-- Interactive Voice Guided Tutor Panel -->
+          <div id="academy-voice-tutor" class="voice-tutor-panel">
+            <div class="tutor-header">
+              <div class="tutor-title">
+                <span class="voice-badge">🗣️ Voice Tutor</span>
+                <h3 id="tutor-lesson-title">Ruy Lopez (Spanish Opening)</h3>
+              </div>
+              <button id="tutor-voice-toggle" class="voice-toggle-btn" title="Toggle Voice Explanation">
+                🔊 Voice: ON
+              </button>
+            </div>
+
+            <div class="tutor-step-card">
+              <div class="tutor-step-badge" id="tutor-step-badge">Move Step 1 of 5: 1. e4</div>
+              <div class="tutor-speech-bubble" id="tutor-speech-text">
+                "1. e4 — King's Pawn Opening. Controls the key central squares e4 and d5 while freeing lines for your Queen and Bishop."
+              </div>
+              <div class="tutor-tip-text" id="tutor-tip-text">💡 Tip: Claims central space and frees Queen & Bishop.</div>
+            </div>
+
+            <div class="tutor-controls">
+              <button id="tutor-reset" class="secondary-btn">⏮️ Reset</button>
+              <button id="tutor-prev" class="secondary-btn">◀️ Prev Move</button>
+              <button id="tutor-next" class="primary-btn">▶️ Next Move Step</button>
+              <button id="tutor-autoplay" class="secondary-btn">⏯️ Autoplay Voice Guide</button>
+            </div>
           </div>
         </div>
 
