@@ -7,9 +7,14 @@ import { WizardBoard3D } from './board3d.js';
 import { soundEngine } from './audio.js';
 import { particleEngine } from './particles.js';
 import { chessEngine } from './engine.js';
-import { puzzleManager } from './puzzles.js';
+import { puzzleManager, PuzzleManager } from './puzzles.js';
 import { academyManager } from './academy.js';
 import { analysisEngine } from './analysis.js';
+import { ai, formatEval } from './ai.js';
+import { gameReview, CLASSES } from './review.js';
+import { ChessClock, formatClock, TIME_CONTROLS } from './clock.js';
+import { identifyOpening } from './openings.js';
+import { storage, exportPGN, downloadPGN } from './storage.js';
 
 class WizardApp {
   constructor() {
@@ -19,6 +24,16 @@ class WizardApp {
     this.aiOpponent = 'ron';
     this.isAiThinking = false;
     this.capturedPieces = { w: [], b: [] };
+    this.twoPlayerMode = false;
+    this.reviewData = null;
+    this.playerColor = 'w';
+
+    // Puzzle progress is persisted, so hand the manager the saved record.
+    this.puzzles = new PuzzleManager(storage.puzzles);
+
+    this.clock = new ChessClock({ initialMs: 0, incrementMs: 0 });
+    this.clock.onTick = () => this.updateClockUI();
+    this.clock.onFlag = (loser) => this.onFlagFall(loser);
 
     this.init();
   }
@@ -34,34 +49,40 @@ class WizardApp {
     this.activeBoard = this.board2d;
     this.activeBoard.attachGame(this.game);
 
-    // 3. Bind Header Navigation Tabs
     this.bindNavigation();
-
-    // 4. Bind Header Controls
     this.bindHeaderControls();
-
-    // 5. Bind Board Controls
     this.bindBoardControls();
-
-    // 6. Bind AI Opponent Cards
     this.bindAiSelector();
-
-    // 7. Bind Daily Puzzles Controls
     this.bindPuzzles();
-
-    // 8. Bind Academy Lessons
     this.bindAcademy();
-
-    // 9. Bind Analysis Tools
     this.bindAnalysis();
-
-    // 10. Bind Promotion & Celebration Modals
     this.bindPromotionModal();
     this.bindGameOverModal();
+    this.bindGameFeatures();
 
-    // 11. Initial State Update
     this.updateEvaluationBar();
     this.updateMoveHistoryUI();
+    this.updateTurnBanner();
+    this.updatePuzzleStats();
+    this.updateRecordUI();
+    this.updateClockUI();
+
+    // Bring up Stockfish in the background; the built-in engine covers play
+    // until it is ready, so nothing blocks on this.
+    this.initEngine();
+  }
+
+  async initEngine() {
+    const backend = await ai.init();
+    const badge = document.getElementById('engine-badge');
+    if (badge) {
+      badge.textContent = ai.usingStockfish ? '⚡ Stockfish' : '📜 Built-in engine';
+      badge.title = ai.usingStockfish
+        ? 'Stockfish 10 running in a Web Worker'
+        : 'Stockfish unavailable — using the built-in engine';
+      badge.classList.toggle('fallback', !ai.usingStockfish);
+    }
+    return backend;
   }
 
   // --- PROMOTION MODAL HANDLER ---
@@ -82,8 +103,11 @@ class WizardApp {
       promoBtns.forEach(b => b.addEventListener('click', onChoice));
     };
 
+    // board3d is created lazily on first 3D toggle, so stash the handler and
+    // apply it to whichever board exists now or later.
+    this.promotionHandler = handlePromotion;
     this.board2d.onPromotionRequired = handlePromotion;
-    this.board3d.onPromotionRequired = handlePromotion;
+    if (this.board3d) this.board3d.onPromotionRequired = handlePromotion;
   }
 
   // --- GAME OVER CELEBRATION MODAL ---
@@ -98,10 +122,11 @@ class WizardApp {
       modal.classList.add('hidden');
       const analysisNav = document.querySelector('.nav-btn[data-tab="analysis"]');
       if (analysisNav) analysisNav.click();
+      this.runGameReview();
     });
   }
 
-  showGameOverCelebration(isVictory) {
+  showGameOverCelebration(outcome, reason = '') {
     const modal = document.getElementById('game-over-modal');
     const badge = document.getElementById('modal-badge');
     const title = document.getElementById('modal-title');
@@ -111,23 +136,38 @@ class WizardApp {
 
     if (!modal) return;
 
-    if (isVictory) {
+    this.clock.pause();
+    storage.recordGameResult(outcome);
+    this.updateRecordUI();
+
+    if (outcome === 'win') {
       badge.className = 'celebration-badge victory';
       badge.textContent = '🏆 VICTORY!';
       title.textContent = 'Checkmate Victory!';
-      msg.textContent = `You have defeated ${this.getAiName(this.aiOpponent)} with spellbinding precision!`;
+      msg.textContent = reason ||
+        `You have defeated ${this.getAiName(this.aiOpponent)} with spellbinding precision!`;
       soundEngine.playVictoryFanfare();
       particleEngine.createConfettiBurst();
+    } else if (outcome === 'draw') {
+      badge.className = 'celebration-badge draw';
+      badge.textContent = '🤝 DRAW';
+      title.textContent = 'An Honourable Draw';
+      msg.textContent = reason || 'Neither wizard could break the other\'s defences.';
     } else {
       badge.className = 'celebration-badge defeat';
       badge.textContent = '💀 DEFEAT';
       title.textContent = 'Wizard Duel Lost!';
-      msg.textContent = `${this.getAiName(this.aiOpponent)} claimed victory this time. Re-arm your strategy and try again!`;
+      msg.textContent = reason ||
+        `${this.getAiName(this.aiOpponent)} claimed victory this time. Re-arm your strategy and try again!`;
       soundEngine.playDefeatSound();
     }
 
     if (movesStat) movesStat.textContent = this.game.history().length;
-    if (opponentStat) opponentStat.textContent = this.getAiName(this.aiOpponent);
+    if (opponentStat) {
+      opponentStat.textContent = this.twoPlayerMode
+        ? 'Local opponent'
+        : this.getAiName(this.aiOpponent);
+    }
 
     modal.classList.remove('hidden');
   }
@@ -136,7 +176,7 @@ class WizardApp {
   bindNavigation() {
     const navButtons = document.querySelectorAll('.nav-btn');
     navButtons.forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', () => {
         const tab = btn.dataset.tab;
         if (!tab) return;
 
@@ -154,6 +194,9 @@ class WizardApp {
   }
 
   onTabSwitched(tab) {
+    // Leaving play pauses the clock so time is not lost while browsing lessons.
+    if (tab !== 'play') this.clock.pause();
+
     if (tab === 'puzzles') {
       this.loadCurrentPuzzle();
     } else if (tab === 'academy') {
@@ -165,6 +208,10 @@ class WizardApp {
     } else if (tab === 'play') {
       this.activeBoard.attachGame(this.game);
       this.updateEvaluationBar();
+      this.updateTurnBanner();
+      if (!this.game.isGameOver() && this.game.history().length > 0) {
+        this.clock.start(this.game.turn());
+      }
     }
   }
 
@@ -197,6 +244,7 @@ class WizardApp {
       if (this.is3D) {
         if (!this.board3d) {
           this.board3d = new WizardBoard3D('chess-board', (moveResult) => this.onPlayerMove(moveResult));
+          this.board3d.onPromotionRequired = this.promotionHandler;
         }
         this.activeBoard = this.board3d;
         boardContainer?.classList.add('mode-3d');
@@ -223,14 +271,135 @@ class WizardApp {
     });
   }
 
+  // --- CLOCK, UNDO, EXPORT, TWO-PLAYER ---
+  bindGameFeatures() {
+    // Time control selector
+    const tcSelect = document.getElementById('time-control-select');
+    if (tcSelect) {
+      tcSelect.innerHTML = TIME_CONTROLS
+        .map(tc => `<option value="${tc.id}">${tc.label}</option>`)
+        .join('');
+      tcSelect.value = storage.preferences.timeControl || 'unlimited';
+      this.applyTimeControl(tcSelect.value, false);
+
+      tcSelect.addEventListener('change', (e) => {
+        soundEngine.playSpellSelectSound();
+        storage.setPreference('timeControl', e.target.value);
+        this.applyTimeControl(e.target.value, true);
+      });
+    }
+
+    document.getElementById('undo-btn')?.addEventListener('click', () => this.undoMove());
+
+    document.getElementById('export-pgn-btn')?.addEventListener('click', () => {
+      soundEngine.playSpellSelectSound();
+      const opening = identifyOpening(this.game.history());
+      const pgn = exportPGN(this.game, {
+        white: this.twoPlayerMode ? 'White' : 'Player',
+        black: this.twoPlayerMode ? 'Black' : this.getAiName(this.aiOpponent),
+        opening: opening ? opening.name : null
+      });
+      const stamp = new Date().toISOString().slice(0, 10);
+      downloadPGN(pgn, `wizard-chess-${stamp}.pgn`);
+      this.updateCommentary('Duel transcript saved as a PGN file.');
+    });
+
+    const twoPlayerBtn = document.getElementById('two-player-btn');
+    twoPlayerBtn?.addEventListener('click', () => {
+      soundEngine.playSpellSelectSound();
+      this.twoPlayerMode = !this.twoPlayerMode;
+      twoPlayerBtn.classList.toggle('active', this.twoPlayerMode);
+      twoPlayerBtn.textContent = this.twoPlayerMode
+        ? '👥 Two Players (On)'
+        : '👤 vs Wizard AI';
+      document.getElementById('opponent-selector')?.classList.toggle('disabled', this.twoPlayerMode);
+      this.updateCommentary(this.twoPlayerMode
+        ? 'Local duel: both wizards share this board.'
+        : `You are now dueling ${this.getAiName(this.aiOpponent)}!`);
+      this.resetGame();
+    });
+
+    document.getElementById('review-btn')?.addEventListener('click', () => this.runGameReview());
+  }
+
+  applyTimeControl(id, restart) {
+    const tc = TIME_CONTROLS.find(t => t.id === id) || TIME_CONTROLS[0];
+    this.clock.reset({ initialMs: tc.initialMs, incrementMs: tc.incrementMs });
+    document.getElementById('clock-panel')?.classList.toggle('hidden', !this.clock.enabled);
+    this.updateClockUI();
+    if (restart) this.resetGame();
+  }
+
+  onFlagFall(loser) {
+    this.updateClockUI();
+    const humanLost = this.twoPlayerMode ? false : loser === this.playerColor;
+    const who = loser === 'w' ? 'White' : 'Black';
+    if (this.twoPlayerMode) {
+      this.showGameOverCelebration('draw', `${who} ran out of time — the other side wins!`);
+    } else {
+      this.showGameOverCelebration(humanLost ? 'loss' : 'win', `${who} ran out of time!`);
+    }
+  }
+
+  updateClockUI() {
+    const panel = document.getElementById('clock-panel');
+    if (!panel || !this.clock.enabled) return;
+    const whiteEl = document.getElementById('clock-white');
+    const blackEl = document.getElementById('clock-black');
+    if (whiteEl) {
+      whiteEl.textContent = formatClock(this.clock.timeFor('w'));
+      whiteEl.classList.toggle('running', this.clock.activeColor === 'w');
+      whiteEl.classList.toggle('low', this.clock.timeFor('w') < 30000);
+    }
+    if (blackEl) {
+      blackEl.textContent = formatClock(this.clock.timeFor('b'));
+      blackEl.classList.toggle('running', this.clock.activeColor === 'b');
+      blackEl.classList.toggle('low', this.clock.timeFor('b') < 30000);
+    }
+  }
+
+  // Take back the last move. Against the AI that means two plies, so the human
+  // gets their own move back rather than simply handing the AI another turn.
+  undoMove() {
+    if (this.isAiThinking) return;
+    if (this.currentMode !== 'play') return;
+    if (this.game.history().length === 0) return;
+
+    soundEngine.playSpellSelectSound();
+
+    const plies = (!this.twoPlayerMode && this.game.history().length >= 2) ? 2 : 1;
+    for (let i = 0; i < plies; i++) {
+      const undone = this.game.undo();
+      if (!undone) break;
+      // Keep the captured-piece tally in step with the board.
+      if (undone.captured) {
+        const defender = undone.color === 'w' ? 'b' : 'w';
+        const list = this.capturedPieces[defender];
+        const idx = list.lastIndexOf(undone.captured);
+        if (idx !== -1) list.splice(idx, 1);
+      }
+    }
+
+    this.activeBoard.attachGame(this.game);
+    this.updateMoveHistoryUI();
+    this.updateEvaluationBar();
+    this.updateTurnBanner();
+    this.updateOpeningUI();
+    this.updateCommentary('Move rewound. The board remembers a different past.');
+  }
+
   resetGame() {
     this.game.reset();
     this.capturedPieces = { w: [], b: [] };
     this.isAiThinking = false;
+    this.reviewData = null;
+    this.clock.reset();
     this.activeBoard.attachGame(this.game);
     this.updateEvaluationBar();
     this.updateMoveHistoryUI();
     this.updateTurnBanner();
+    this.updateClockUI();
+    this.updateOpeningUI();
     this.updateCommentary('New game started! Choose your opponent and cast your first move.');
   }
 
@@ -239,16 +408,20 @@ class WizardApp {
     soundEngine.playSpellSelectSound();
 
     if (this.currentMode === 'puzzles') {
-      const puzzle = puzzleManager.getCurrentPuzzle();
+      const puzzle = this.puzzles.getCurrentPuzzle();
       if (puzzle && puzzle.solutionVerbose.length > 0) {
-        const hintSquare = puzzle.solutionVerbose[0].from;
-        this.activeBoard.setLumosHint(hintSquare);
+        this.activeBoard.setLumosHint(puzzle.solutionVerbose[0].from);
       }
+      return;
+    }
+
+    this.updateCommentary('Casting Lumos — consulting the engine...');
+    const result = await ai.analyse(this.game, { depth: 14 });
+    if (result && result.move) {
+      this.activeBoard.setLumosHint(result.move.from);
+      this.updateCommentary(`Lumos reveals a promising move from ${result.move.from}.`);
     } else {
-      const bestMove = await chessEngine.getBestMoveAsync(this.game, 'dumbledore');
-      if (bestMove) {
-        this.activeBoard.setLumosHint(bestMove.from);
-      }
+      this.updateCommentary('Lumos flickers — no clear move found.');
     }
   }
 
@@ -257,24 +430,20 @@ class WizardApp {
     const cards = document.querySelectorAll('.opponent-card');
     cards.forEach(card => {
       card.addEventListener('click', () => {
+        if (this.twoPlayerMode) return;
         cards.forEach(c => c.classList.remove('active'));
         card.classList.add('active');
         this.aiOpponent = card.dataset.ai || 'ron';
         soundEngine.playSpellSelectSound();
-
-        const names = {
-          ron: 'Ron Weasley',
-          hermione: 'Hermione Granger',
-          snape: 'Severus Snape',
-          dumbledore: 'Albus Dumbledore'
-        };
-        this.updateCommentary(`You are now dueling ${names[this.aiOpponent]}!`);
+        this.updateCommentary(`You are now dueling ${this.getAiName(this.aiOpponent, true)}!`);
       });
     });
   }
 
   // --- PLAYER MOVE CALLBACK ---
   onPlayerMove(move) {
+    if (!move) return;
+
     if (move.captured) {
       const defender = move.color === 'w' ? 'b' : 'w';
       this.capturedPieces[defender].push(move.captured);
@@ -283,70 +452,103 @@ class WizardApp {
     this.updateMoveHistoryUI();
     this.updateEvaluationBar();
     this.updateTurnBanner();
+    this.updateOpeningUI();
 
-    // Check if in Puzzle mode
     if (this.currentMode === 'puzzles') {
-      const isCorrect = puzzleManager.verifyMove(move);
-      const statusEl = document.getElementById('puzzle-status');
-      if (isCorrect) {
-        soundEngine.playPuzzleSuccessSound();
-        statusEl.className = 'puzzle-status success';
-        statusEl.textContent = '✨ Spellbinding! Puzzle Solved Correctly! (+15 XP)';
-        this.updatePuzzleStats();
-      } else {
-        statusEl.className = 'puzzle-status failed';
-        statusEl.textContent = '❌ Incorrect Move! Try again or cast Lumos for a hint.';
-        this.updatePuzzleStats();
-      }
+      this.handlePuzzleMove(move);
       return;
     }
 
-    // Check game over
-    if (this.game.isCheckmate()) {
-      this.updateCommentary('⚡ CHECKMATE! Victory has been claimed on the enchanted board!');
-      this.showGameOverCelebration(true); // User White Wins!
-      return;
-    } else if (this.game.isDraw()) {
-      this.updateCommentary('Stalemate! The duel ends in an honorable draw.');
-      return;
-    }
+    this.clock.press(move.color);
+    this.updateClockUI();
 
-    // Trigger AI response if playing vs AI and it's Black's turn
-    if (this.currentMode === 'play' && this.game.turn() === 'b' && !this.isAiThinking) {
+    if (this.checkGameEnd()) return;
+
+    // Trigger AI response when playing against the engine.
+    if (this.currentMode === 'play' && !this.twoPlayerMode &&
+        this.game.turn() !== this.playerColor && !this.isAiThinking) {
       this.triggerAiMove();
     }
   }
 
-  // --- AI MOVE EXECUTION (OPTIMIZED ASYNC) ---
-  async triggerAiMove() {
-    this.isAiThinking = true;
-    this.updateCommentary(`${this.getAiName(this.aiOpponent)} is contemplating their spell move...`);
+  // Returns true when the game is over and the modal has been shown.
+  checkGameEnd() {
+    if (!this.game.isGameOver()) return false;
 
-    // Non-blocking async calculation
-    const bestMove = await chessEngine.getBestMoveAsync(this.game, this.aiOpponent);
-
-    if (bestMove && !this.game.isGameOver()) {
-      this.activeBoard.executeWizardMove(bestMove);
-    }
-
-    this.isAiThinking = false;
-    this.updateEvaluationBar();
-    this.updateMoveHistoryUI();
-    this.updateTurnBanner();
+    this.clock.pause();
 
     if (this.game.isCheckmate()) {
-      this.updateCommentary(`⚡ CHECKMATE! ${this.getAiName(this.aiOpponent)} wins the duel!`);
-      this.showGameOverCelebration(false); // AI Wins -> User Defeat
-    } else if (this.game.inCheck()) {
-      this.updateCommentary(`Check! ${this.getAiName(this.aiOpponent)} puts your King under attack!`);
-    } else {
-      this.updateCommentary(this.getAiQuote(this.aiOpponent));
+      // The side to move is the one that got mated.
+      const loser = this.game.turn();
+      if (this.twoPlayerMode) {
+        const winner = loser === 'w' ? 'Black' : 'White';
+        this.updateCommentary(`⚡ CHECKMATE! ${winner} wins the duel!`);
+        this.showGameOverCelebration('win', `${winner} delivers checkmate!`);
+      } else if (loser === this.playerColor) {
+        this.updateCommentary(`⚡ CHECKMATE! ${this.getAiName(this.aiOpponent)} wins the duel!`);
+        this.showGameOverCelebration('loss');
+      } else {
+        this.updateCommentary('⚡ CHECKMATE! Victory has been claimed on the enchanted board!');
+        this.showGameOverCelebration('win');
+      }
+      return true;
+    }
+
+    let reason = 'The duel ends in an honourable draw.';
+    if (this.game.isStalemate()) reason = 'Stalemate! No legal moves remain.';
+    else if (this.game.isThreefoldRepetition()) reason = 'Threefold repetition — the position keeps returning.';
+    else if (this.game.isInsufficientMaterial()) reason = 'Neither side has enough material to mate.';
+    else if (this.game.isDraw()) reason = 'Fifty moves without a capture or pawn move.';
+
+    this.updateCommentary(reason);
+    this.showGameOverCelebration('draw', reason);
+    return true;
+  }
+
+  // --- AI MOVE EXECUTION ---
+  async triggerAiMove() {
+    this.isAiThinking = true;
+    this.setThinking(true);
+    this.updateCommentary(`${this.getAiName(this.aiOpponent)} is contemplating their spell move...`);
+
+    try {
+      const bestMove = await ai.getMove(this.game, this.aiOpponent);
+
+      if (bestMove && !this.game.isGameOver()) {
+        this.activeBoard.executeWizardMove(bestMove);
+        // executeWizardMove routes back through onPlayerMove, which advances
+        // the clock, refreshes the UI and checks for game end.
+      }
+    } catch (e) {
+      console.error('AI move failed:', e);
+      this.updateCommentary('The engine faltered. Try another move.');
+    } finally {
+      this.isAiThinking = false;
+      this.setThinking(false);
+    }
+
+    if (!this.game.isGameOver()) {
+      if (this.game.inCheck()) {
+        this.updateCommentary(`Check! ${this.getAiName(this.aiOpponent)} puts your King under attack!`);
+      } else {
+        this.updateCommentary(this.getAiQuote(this.aiOpponent));
+      }
     }
   }
 
-  getAiName(id) {
-    const map = { ron: 'Ron', hermione: 'Hermione', snape: 'Snape', dumbledore: 'Dumbledore' };
-    return map[id] || 'Opponent';
+  setThinking(on) {
+    document.getElementById('turn-banner')?.classList.toggle('thinking', on);
+    const hint = document.getElementById('hint-btn');
+    if (hint) hint.disabled = on;
+  }
+
+  getAiName(id, full = false) {
+    const short = { ron: 'Ron', hermione: 'Hermione', snape: 'Snape', dumbledore: 'Dumbledore' };
+    const long = {
+      ron: 'Ron Weasley', hermione: 'Hermione Granger',
+      snape: 'Severus Snape', dumbledore: 'Albus Dumbledore'
+    };
+    return (full ? long[id] : short[id]) || 'Opponent';
   }
 
   getAiQuote(id) {
@@ -366,32 +568,56 @@ class WizardApp {
       btn.addEventListener('click', () => {
         categoryBtns.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        const cat = btn.dataset.category || 'mate1';
-        puzzleManager.setCategory(cat);
+        this.puzzles.setCategory(btn.dataset.category || 'mate1');
         this.loadCurrentPuzzle();
       });
     });
 
     document.getElementById('next-puzzle-btn')?.addEventListener('click', () => {
       soundEngine.playSpellSelectSound();
-      puzzleManager.nextPuzzle();
+      this.puzzles.nextPuzzle();
       this.loadCurrentPuzzle();
     });
 
     document.getElementById('solve-reveal-btn')?.addEventListener('click', () => {
       soundEngine.playSpellSelectSound();
-      const puzzle = puzzleManager.getCurrentPuzzle();
+      const puzzle = this.puzzles.getCurrentPuzzle();
       if (puzzle && puzzle.solutionVerbose.length > 0) {
         this.game.load(puzzle.fen);
         this.activeBoard.attachGame(this.game);
-        const solMove = puzzle.solutionVerbose[0];
-        this.activeBoard.executeWizardMove(solMove);
+        const target = puzzle.solutionVerbose[0];
+        // Resolve against the real legal move list so promotions and captures
+        // carry the right metadata.
+        const move = this.game.moves({ verbose: true })
+          .find(m => m.from === target.from && m.to === target.to);
+        if (move) this.activeBoard.executeWizardMove(move);
       }
     });
   }
 
+  handlePuzzleMove(move) {
+    const puzzle = this.puzzles.getCurrentPuzzle();
+    const { correct, alreadyScored } = this.puzzles.verifyMove(move);
+    const statusEl = document.getElementById('puzzle-status');
+    if (!statusEl) return;
+
+    if (correct) {
+      soundEngine.playPuzzleSuccessSound();
+      statusEl.className = 'puzzle-status success';
+      statusEl.textContent = alreadyScored
+        ? '✨ Correct! (already attempted — no XP this time)'
+        : '✨ Spellbinding! Puzzle Solved Correctly! (+15 XP)';
+      if (!alreadyScored) storage.recordPuzzleResult(puzzle?.id, true);
+    } else {
+      statusEl.className = 'puzzle-status failed';
+      statusEl.textContent = '❌ Incorrect Move! Try again or cast Lumos for a hint.';
+      if (!alreadyScored) storage.recordPuzzleResult(puzzle?.id, false);
+    }
+    this.updatePuzzleStats();
+  }
+
   loadCurrentPuzzle() {
-    const puzzle = puzzleManager.getCurrentPuzzle();
+    const puzzle = this.puzzles.getCurrentPuzzle();
     if (!puzzle) return;
 
     this.game.load(puzzle.fen);
@@ -402,44 +628,48 @@ class WizardApp {
     document.getElementById('puzzle-theme-badge').textContent = puzzle.category;
 
     const statusEl = document.getElementById('puzzle-status');
-    statusEl.className = 'puzzle-status';
-    statusEl.textContent = 'Find the winning move for White!';
+    if (statusEl) {
+      statusEl.className = 'puzzle-status';
+      const side = this.game.turn() === 'w' ? 'White' : 'Black';
+      statusEl.textContent = this.puzzles.isSolved(puzzle.id)
+        ? `✓ Already solved — find the winning move for ${side} again!`
+        : `Find the winning move for ${side}!`;
+    }
 
     this.updatePuzzleStats();
     this.updateEvaluationBar();
+    this.updateTurnBanner();
   }
 
   updatePuzzleStats() {
-    document.getElementById('puzzle-streak').textContent = `${puzzleManager.streak} 🔥`;
-    document.getElementById('puzzle-rating').textContent = `${puzzleManager.score} ⚡`;
-    document.getElementById('puzzles-solved').textContent = `${puzzleManager.solvedCount} 🎯`;
+    const p = storage.puzzles;
+    const set = (id, text) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = text;
+    };
+    set('puzzle-streak', `${p.streak} 🔥`);
+    set('puzzle-rating', `${p.score} ⚡`);
+    set('puzzles-solved', `${p.solved}/${this.puzzles.totalPuzzles} 🎯`);
+  }
+
+  updateRecordUI() {
+    const el = document.getElementById('player-record');
+    if (!el) return;
+    const r = storage.record;
+    el.textContent = `${r.wins}W · ${r.losses}L · ${r.draws}D`;
   }
 
   // --- TRAINING ACADEMY ---
-  bindAcademy() {
-    const tabBtns = document.querySelectorAll('.acad-tab-btn');
-    tabBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        tabBtns.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        const sec = btn.dataset.section || 'openings';
-        this.renderAcademySection(sec);
-      });
-    });
-  }
-
   bindAcademy() {
     document.querySelectorAll('.acad-tab-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.acad-tab-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         soundEngine.playSpellSelectSound();
-        const sec = btn.dataset.section || 'openings';
-        this.renderAcademySection(sec);
+        this.renderAcademySection(btn.dataset.section || 'openings');
       });
     });
 
-    // Variation Selector Dropdown
     const varSelect = document.getElementById('tutor-variation-select');
     varSelect?.addEventListener('change', (e) => {
       soundEngine.playSpellSelectSound();
@@ -453,14 +683,19 @@ class WizardApp {
       }
     });
 
-    // Voice Tutor Control Buttons
     const toggleVoiceBtn = document.getElementById('tutor-voice-toggle');
-    toggleVoiceBtn?.addEventListener('click', () => {
-      this.voiceTutorEnabled = !this.voiceTutorEnabled;
+    this.voiceTutorEnabled = Boolean(storage.preferences.voiceTutor);
+    if (toggleVoiceBtn) {
       toggleVoiceBtn.classList.toggle('muted', !this.voiceTutorEnabled);
       toggleVoiceBtn.textContent = this.voiceTutorEnabled ? '🔊 Voice: ON' : '🔇 Voice: OFF';
-      if (!this.voiceTutorEnabled) soundEngine.stopSpeech();
-    });
+      toggleVoiceBtn.addEventListener('click', () => {
+        this.voiceTutorEnabled = !this.voiceTutorEnabled;
+        storage.setPreference('voiceTutor', this.voiceTutorEnabled);
+        toggleVoiceBtn.classList.toggle('muted', !this.voiceTutorEnabled);
+        toggleVoiceBtn.textContent = this.voiceTutorEnabled ? '🔊 Voice: ON' : '🔇 Voice: OFF';
+        if (!this.voiceTutorEnabled) soundEngine.stopSpeech();
+      });
+    }
 
     document.getElementById('tutor-reset')?.addEventListener('click', () => {
       soundEngine.playSpellSelectSound();
@@ -469,9 +704,7 @@ class WizardApp {
 
     document.getElementById('tutor-prev')?.addEventListener('click', () => {
       soundEngine.playSpellSelectSound();
-      if (this.activeLessonStep > 0) {
-        this.applyAcademyStep(this.activeLessonStep - 1);
-      }
+      if (this.activeLessonStep > 0) this.applyAcademyStep(this.activeLessonStep - 1);
     });
 
     document.getElementById('tutor-next')?.addEventListener('click', () => {
@@ -542,9 +775,7 @@ class WizardApp {
       container.appendChild(card);
     });
 
-    if (lessons.length > 0) {
-      this.loadAcademyLesson(lessons[0]);
-    }
+    if (lessons.length > 0) this.loadAcademyLesson(lessons[0]);
   }
 
   loadAcademyLesson(lesson) {
@@ -577,14 +808,26 @@ class WizardApp {
 
     this.activeLessonStep = Math.max(0, Math.min(stepIndex, sequence.length - 1));
 
-    // Reset game and play moves up to stepIndex
-    this.game.reset();
+    // Endgame lessons begin from a set position rather than the initial board.
+    const startFen = (this.activeVariation && this.activeVariation.startFen) ||
+                     this.activeLesson.startFen || null;
+    if (startFen) {
+      try {
+        this.game.load(startFen);
+      } catch (e) {
+        console.warn('Academy start position invalid:', startFen, e);
+        this.game.reset();
+      }
+    } else {
+      this.game.reset();
+    }
+
     for (let i = 0; i <= this.activeLessonStep; i++) {
       if (sequence[i] && sequence[i].san) {
         try {
           this.game.move(sequence[i].san);
         } catch (e) {
-          console.warn('Academy move error:', e);
+          console.warn('Academy move error:', sequence[i].san, e);
         }
       }
     }
@@ -598,17 +841,16 @@ class WizardApp {
     const speechEl = document.getElementById('tutor-speech-text');
     const tipEl = document.getElementById('tutor-tip-text');
 
-    const varTitle = this.activeVariation ? `${this.activeLesson.title} — ${this.activeVariation.name}` : this.activeLesson.title;
+    const varTitle = this.activeVariation
+      ? `${this.activeLesson.title} — ${this.activeVariation.name}`
+      : this.activeLesson.title;
 
     if (titleEl) titleEl.textContent = varTitle;
     if (badgeEl) badgeEl.textContent = `Move Step ${this.activeLessonStep + 1} of ${sequence.length}: ${currentData.title}`;
     if (speechEl) speechEl.textContent = `"${currentData.speech}"`;
     if (tipEl) tipEl.textContent = `💡 Tip: ${currentData.tip}`;
 
-    // Speak explanation out loud line by line!
-    if (this.voiceTutorEnabled) {
-      soundEngine.speakExplanation(currentData.speech);
-    }
+    if (this.voiceTutorEnabled) soundEngine.speakExplanation(currentData.speech);
   }
 
   // --- GAME ANALYSIS ---
@@ -616,57 +858,38 @@ class WizardApp {
     document.getElementById('load-fen-btn')?.addEventListener('click', () => {
       const fenInput = document.getElementById('fen-input').value.trim();
       if (!fenInput) return;
-      const success = analysisEngine.loadFEN(fenInput);
-      if (success) {
+      if (analysisEngine.loadFEN(fenInput)) {
         this.activeBoard.attachGame(analysisEngine.analysisGame);
         soundEngine.playSpellSelectSound();
         this.runAnalysisUpdate();
       } else {
-        alert('Invalid FEN format!');
+        this.setAnalysisNotice('Invalid FEN format — check the position string.', true);
       }
     });
 
     document.getElementById('load-pgn-btn')?.addEventListener('click', () => {
       const pgnInput = document.getElementById('pgn-input').value.trim();
       if (!pgnInput) return;
-      const success = analysisEngine.loadPGN(pgnInput);
-      if (success) {
+      if (analysisEngine.loadPGN(pgnInput)) {
         this.activeBoard.attachGame(analysisEngine.analysisGame);
         soundEngine.playSpellSelectSound();
         this.runAnalysisUpdate();
       } else {
-        alert('Invalid PGN format!');
+        this.setAnalysisNotice('Invalid PGN — could not read that game transcript.', true);
       }
     });
 
-    // Navigation buttons for Analysis replay
-    document.getElementById('step-first')?.addEventListener('click', () => {
+    const step = (fn) => {
       soundEngine.playSpellSelectSound();
-      const game = analysisEngine.stepFirst();
+      const game = fn();
       this.activeBoard.attachGame(game);
       this.runAnalysisUpdate();
-    });
+    };
 
-    document.getElementById('step-prev')?.addEventListener('click', () => {
-      soundEngine.playSpellSelectSound();
-      const game = analysisEngine.stepPrev();
-      this.activeBoard.attachGame(game);
-      this.runAnalysisUpdate();
-    });
-
-    document.getElementById('step-next')?.addEventListener('click', () => {
-      soundEngine.playSpellSelectSound();
-      const game = analysisEngine.stepNext();
-      this.activeBoard.attachGame(game);
-      this.runAnalysisUpdate();
-    });
-
-    document.getElementById('step-last')?.addEventListener('click', () => {
-      soundEngine.playSpellSelectSound();
-      const game = analysisEngine.stepLast();
-      this.activeBoard.attachGame(game);
-      this.runAnalysisUpdate();
-    });
+    document.getElementById('step-first')?.addEventListener('click', () => step(() => analysisEngine.stepFirst()));
+    document.getElementById('step-prev')?.addEventListener('click', () => step(() => analysisEngine.stepPrev()));
+    document.getElementById('step-next')?.addEventListener('click', () => step(() => analysisEngine.stepNext()));
+    document.getElementById('step-last')?.addEventListener('click', () => step(() => analysisEngine.stepLast()));
 
     const autoBtn = document.getElementById('auto-play-btn');
     autoBtn?.addEventListener('click', () => {
@@ -679,27 +902,163 @@ class WizardApp {
     });
   }
 
-  runAnalysisUpdate() {
+  setAnalysisNotice(text, isError = false) {
+    const el = document.getElementById('analysis-notice');
+    if (!el) return;
+    el.textContent = text;
+    el.classList.toggle('error', isError);
+    el.classList.toggle('hidden', !text);
+  }
+
+  async runAnalysisUpdate() {
     const evalData = analysisEngine.evaluateCurrentPosition();
 
-    const evalEl = document.getElementById('analysis-eval');
-    const moveEl = document.getElementById('analysis-best-move');
-    const classEl = document.getElementById('analysis-classification');
     const stepEl = document.getElementById('analysis-step-counter');
-
-    if (evalEl) evalEl.textContent = evalData.evalText;
-    if (moveEl) moveEl.textContent = evalData.bestMove;
-    if (classEl) classEl.textContent = evalData.classification;
     if (stepEl) stepEl.textContent = evalData.stepText;
 
+    const classEl = document.getElementById('analysis-classification');
+    if (classEl) classEl.textContent = evalData.classification;
+
     this.updateEvaluationBar(evalData.fillPercentage, evalData.evalText);
+
+    // Then refresh with a real engine evaluation, which is async.
+    const moveEl = document.getElementById('analysis-best-move');
+    const evalEl = document.getElementById('analysis-eval');
+    if (moveEl) moveEl.textContent = 'thinking…';
+
+    const token = Symbol('analysis');
+    this.analysisToken = token;
+    const result = await ai.analyse(analysisEngine.analysisGame, { depth: 14 });
+    // A newer request superseded this one; drop the stale answer.
+    if (this.analysisToken !== token) return;
+
+    const { text, fill } = formatEval(result.score, result.mate);
+    if (evalEl) evalEl.textContent = text;
+    if (moveEl) moveEl.textContent = result.move ? result.move.san : '—';
+    this.updateEvaluationBar(fill, text);
+  }
+
+  // --- POST-GAME REVIEW ---
+  async runGameReview() {
+    const container = document.getElementById('review-container');
+    if (!container) return;
+
+    const history = this.game.history();
+    if (history.length === 0) {
+      container.innerHTML = '<div class="placeholder-text">Play a game first, then review it here.</div>';
+      return;
+    }
+
+    container.innerHTML = '<div class="review-progress">Reviewing game… <span id="review-progress-text">0%</span></div>';
+
+    const depth = ai.usingStockfish ? 12 : 6;
+    const data = await gameReview.run(this.game, {
+      depth,
+      onProgress: ({ done, total }) => {
+        const el = document.getElementById('review-progress-text');
+        if (el) el.textContent = `${Math.round((done / total) * 100)}%`;
+      }
+    });
+
+    if (!data) {
+      container.innerHTML = '<div class="placeholder-text">Review cancelled.</div>';
+      return;
+    }
+
+    this.reviewData = data;
+    this.renderReview(data);
+  }
+
+  renderReview(data) {
+    const container = document.getElementById('review-container');
+    if (!container) return;
+
+    const opening = identifyOpening(this.game.history());
+    const sideRow = (label, side) => {
+      const chips = CLASSES.map(c =>
+        `<span class="rv-chip rv-${c.id}" title="${c.label}">${c.icon} ${side.counts[c.id]}</span>`
+      ).join('');
+      return `
+        <div class="review-side">
+          <div class="rv-head">
+            <span class="rv-name">${label}</span>
+            <span class="rv-acc">${side.accuracy}%</span>
+          </div>
+          <div class="rv-sub">Average loss: ${side.averageLoss} centipawns</div>
+          <div class="rv-chips">${chips}</div>
+        </div>
+      `;
+    };
+
+    const worst = data.worst;
+    const worstHtml = worst && worst.loss > 0
+      ? `<div class="review-worst">
+           <strong>Turning point:</strong> ${worst.moveNumber}${worst.color === 'w' ? '.' : '...'}
+           ${worst.san} <span class="rv-${worst.classification}">${worst.label}</span>
+           ${worst.bestSan ? `— ${worst.bestSan} was stronger` : ''}
+         </div>`
+      : '';
+
+    container.innerHTML = `
+      ${opening ? `<div class="review-opening">📖 ${opening.label}</div>` : ''}
+      <div class="review-sides">
+        ${sideRow('White', data.white)}
+        ${sideRow('Black', data.black)}
+      </div>
+      ${worstHtml}
+      ${this.renderEvalGraph(data.evalCurve)}
+      <div class="review-moves">
+        ${data.moves.map(m => `
+          <div class="rv-move rv-${m.classification}" data-ply="${m.ply}">
+            <span class="rv-num">${m.color === 'w' ? m.moveNumber + '.' : ''}</span>
+            <span class="rv-san">${m.san}</span>
+            <span class="rv-icon">${m.icon}</span>
+            <span class="rv-loss">${m.loss > 0 ? '-' + (m.loss / 100).toFixed(2) : ''}</span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+
+    // Clicking a move jumps the replay board to that position.
+    container.querySelectorAll('.rv-move').forEach(el => {
+      el.addEventListener('click', () => {
+        const ply = parseInt(el.dataset.ply, 10);
+        const game = analysisEngine.replayToStep(ply - 1);
+        this.activeBoard.attachGame(game || analysisEngine.analysisGame);
+        this.runAnalysisUpdate();
+      });
+    });
+  }
+
+  // Inline SVG eval graph: white advantage above the midline, black below.
+  renderEvalGraph(curve) {
+    if (!curve || curve.length < 2) return '';
+    const width = 100;
+    const height = 40;
+    const clamp = (cp) => Math.max(-1000, Math.min(1000, cp));
+
+    const points = curve.map((p, i) => {
+      const x = (i / (curve.length - 1)) * width;
+      const y = height / 2 - (clamp(p.cp) / 1000) * (height / 2);
+      return `${x.toFixed(2)},${y.toFixed(2)}`;
+    }).join(' ');
+
+    return `
+      <div class="review-graph">
+        <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img"
+             aria-label="Evaluation over the course of the game">
+          <rect x="0" y="0" width="${width}" height="${height}" class="rv-graph-bg"/>
+          <line x1="0" y1="${height / 2}" x2="${width}" y2="${height / 2}" class="rv-graph-mid"/>
+          <polyline points="${points}" class="rv-graph-line"/>
+        </svg>
+      </div>
+    `;
   }
 
   // --- UI UPDATERS ---
   updateEvaluationBar(customFill = null, customText = null) {
     const fillEl = document.getElementById('eval-bar-fill');
     const textEl = document.getElementById('eval-bar-text');
-
     if (!fillEl || !textEl) return;
 
     if (customFill !== null && customText !== null) {
@@ -708,9 +1067,20 @@ class WizardApp {
       return;
     }
 
-    const evalData = analysisEngine.evaluateCurrentPosition(this.game);
-    fillEl.style.height = `${evalData.fillPercentage}%`;
-    textEl.textContent = evalData.evalText;
+    // Cheap static evaluation of the live game — no search, so it stays
+    // responsive after every move.
+    const score = ai.quickEval(this.game);
+    const { text, fill } = formatEval(score, null);
+    fillEl.style.height = `${fill}%`;
+    textEl.textContent = text;
+  }
+
+  updateOpeningUI() {
+    const el = document.getElementById('opening-name');
+    if (!el) return;
+    const opening = identifyOpening(this.game.history());
+    el.textContent = opening ? `📖 ${opening.label}` : '';
+    el.classList.toggle('hidden', !opening);
   }
 
   updateMoveHistoryUI() {
@@ -724,14 +1094,11 @@ class WizardApp {
     } else {
       let html = '';
       for (let i = 0; i < moves.length; i += 2) {
-        const moveNum = Math.floor(i / 2) + 1;
-        const whiteMove = moves[i];
-        const blackMove = moves[i + 1] || '';
         html += `
           <div class="move-row">
-            <span class="move-num">${moveNum}.</span>
-            <span class="move-white">${whiteMove}</span>
-            <span class="move-black">${blackMove}</span>
+            <span class="move-num">${Math.floor(i / 2) + 1}.</span>
+            <span class="move-white">${moves[i]}</span>
+            <span class="move-black">${moves[i + 1] || ''}</span>
           </div>
         `;
       }
@@ -740,8 +1107,12 @@ class WizardApp {
     }
 
     if (capturedSummary) {
-      capturedSummary.textContent = `Captured: White ${this.capturedPieces.w.length} | Black ${this.capturedPieces.b.length}`;
+      capturedSummary.textContent =
+        `Captured: White ${this.capturedPieces.w.length} | Black ${this.capturedPieces.b.length}`;
     }
+
+    const undoBtn = document.getElementById('undo-btn');
+    if (undoBtn) undoBtn.disabled = moves.length === 0;
   }
 
   updateTurnBanner() {
@@ -753,6 +1124,8 @@ class WizardApp {
 
     if (this.game.isCheckmate()) {
       banner.innerHTML = `<span class="turn-dot ${turn === 'w' ? 'black' : 'white'}"></span> CHECKMATE! ${turn === 'w' ? 'Black' : 'White'} Wins!`;
+    } else if (this.game.isGameOver()) {
+      banner.innerHTML = `<span class="turn-dot"></span> Game over — draw`;
     } else {
       banner.innerHTML = `<span class="turn-dot ${turn === 'w' ? 'white' : 'black'}"></span> ${turn === 'w' ? 'White' : 'Black'} to move ${isCheck ? '(CHECK!)' : ''}`;
     }

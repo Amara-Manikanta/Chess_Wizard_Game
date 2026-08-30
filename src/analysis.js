@@ -1,6 +1,7 @@
 // Engine Game Analysis Module, PGN/FEN Inspector & Full Game Replay Engine
 
 import { chessEngine } from './engine.js';
+import { formatEval } from './ai.js';
 import { Chess } from 'chess.js';
 
 export class AnalysisEngine {
@@ -104,21 +105,13 @@ export class AnalysisEngine {
     }
   }
 
-  evaluateCurrentPosition() {
-    const score = chessEngine.evaluateBoard(this.analysisGame);
-    const bestMove = chessEngine.getBestMove(this.analysisGame, 'dumbledore');
-
-    let evalText = '0.0';
-    let fillPercentage = 50;
-
-    if (Math.abs(score) > 5000) {
-      evalText = score > 0 ? '# M' : '# -M';
-      fillPercentage = score > 0 ? 100 : 0;
-    } else {
-      const pawnVal = (score / 100).toFixed(1);
-      evalText = score > 0 ? `+${pawnVal}` : `${pawnVal}`;
-      fillPercentage = Math.max(0, Math.min(100, 50 + (score / 100) * 5));
-    }
+  // Cheap, synchronous snapshot of a position. Called after every move for the
+  // eval bar, so it must not run a search — deep analysis goes through
+  // ai.analyse() instead, which is async and runs off the main thread.
+  // Defaults to the replay board, but callers may pass the live game.
+  evaluateCurrentPosition(game = this.analysisGame) {
+    const score = chessEngine.evaluateBoard(game);
+    const { text: evalText, fill: fillPercentage } = formatEval(score, null);
 
     let classification = 'Neutral Position';
     if (Math.abs(score) > 400) {
@@ -135,14 +128,7 @@ export class AnalysisEngine {
       stepText = `Move ${this.currentStep + 1}/${this.historyMoves.length} (${lastMove.san})`;
     }
 
-    return {
-      score,
-      evalText,
-      fillPercentage,
-      bestMove: bestMove ? `${bestMove.from} → ${bestMove.to}` : 'None',
-      classification,
-      stepText
-    };
+    return { score, evalText, fillPercentage, classification, stepText };
   }
 }
 
