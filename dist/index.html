@@ -7,8 +7,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <script type="module" crossorigin src="./assets/index-j1w6zQTF.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-I6nKIP63.css">
+  <script type="module" crossorigin src="./assets/index-BtmEBfRC.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-CKvvCdio.css">
 </head>
 <body>
   <!-- Ambient Particle Canvas for Floating Magic & Spell FX -->
@@ -41,6 +41,8 @@
       </nav>
 
       <div class="header-actions">
+        <span id="engine-badge" class="engine-badge" title="Loading chess engine…">⏳ Loading engine…</span>
+        <span id="player-record" class="player-record" title="Your win/loss/draw record">0W · 0L · 0D</span>
         <button id="sound-toggle" class="icon-btn" title="Toggle Magical Sound FX">
           <span id="sound-icon">🔊</span>
         </button>
@@ -67,6 +69,21 @@
             <span class="turn-dot white"></span> White to move
           </div>
 
+          <!-- Chess Clock (hidden unless a time control is chosen) -->
+          <div class="clock-panel hidden" id="clock-panel">
+            <div class="clock-side">
+              <span class="clock-label">White</span>
+              <span class="clock-time" id="clock-white">--:--</span>
+            </div>
+            <div class="clock-side">
+              <span class="clock-label">Black</span>
+              <span class="clock-time" id="clock-black">--:--</span>
+            </div>
+          </div>
+
+          <!-- Detected opening name -->
+          <div class="opening-name hidden" id="opening-name"></div>
+
           <!-- Chess Board Grid -->
           <div id="chess-board" class="chess-board"></div>
 
@@ -84,6 +101,12 @@
             <button id="hint-btn" class="secondary-btn magical-highlight" title="Cast Lumos (Hint)">
               💡 Lumos Hint
             </button>
+            <button id="undo-btn" class="secondary-btn" title="Take back the last move" disabled>
+              ↩️ Takeback
+            </button>
+            <button id="export-pgn-btn" class="secondary-btn" title="Download this game as a PGN file">
+              💾 Export PGN
+            </button>
           </div>
         </div>
       </section>
@@ -98,7 +121,17 @@
             <p>Select your adversary and battle on the enchanted board</p>
           </div>
 
-          <div class="opponent-selector">
+          <div class="match-settings">
+            <label class="setting-row" for="time-control-select">
+              <span>⏱️ Time control</span>
+              <select id="time-control-select" class="variation-select"></select>
+            </label>
+            <button id="two-player-btn" class="secondary-btn full-width" title="Play both sides locally">
+              👤 vs Wizard AI
+            </button>
+          </div>
+
+          <div class="opponent-selector" id="opponent-selector">
             <div class="opponent-card active" data-ai="ron">
               <div class="avatar">🧙‍♂️</div>
               <div class="info">
@@ -271,6 +304,8 @@
               <button id="load-pgn-btn" class="primary-btn">Analyze Full PGN</button>
             </div>
 
+            <div id="analysis-notice" class="analysis-notice hidden"></div>
+
             <div class="analysis-summary-card">
               <div class="summary-item">
                 <span class="label">Evaluation:</span>
@@ -279,6 +314,10 @@
               <div class="summary-item">
                 <span class="label">Best Engine Move:</span>
                 <span class="value highlight" id="analysis-best-move">-</span>
+              </div>
+              <div class="summary-item">
+                <span class="label">Position:</span>
+                <span class="value" id="analysis-classification">Equal Position ⚖️</span>
               </div>
               <div class="summary-item">
                 <span class="label">Replay Step:</span>
@@ -292,6 +331,18 @@
               <button id="step-next" class="icon-btn" title="Next Move">▶️</button>
               <button id="step-last" class="icon-btn" title="Last Move">⏭️</button>
               <button id="auto-play-btn" class="icon-btn" title="Autoplay">⏯️</button>
+            </div>
+
+            <!-- Post-game review -->
+            <div class="input-group">
+              <button id="review-btn" class="primary-btn full-width" title="Analyse every move of the current game">
+                🔬 Review My Game
+              </button>
+            </div>
+            <div id="review-container" class="review-container">
+              <div class="placeholder-text">
+                Play a game, then run a review to see every move graded and the turning point identified.
+              </div>
             </div>
           </div>
         </div>

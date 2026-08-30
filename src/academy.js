@@ -250,6 +250,10 @@ export const ACADEMY_LESSONS = {
           id: 'opp_direct',
           name: 'Direct Opposition Duel',
           description: 'Mastering the fundamental King endgame duel.',
+          // Endgame lessons do not start from the initial position, so they
+          // carry the position they begin from. Without this the moves below
+          // are illegal and the lesson silently shows a starting board.
+          startFen: '4k3/8/8/8/8/8/3P4/4K3 w - - 0 1',
           moveSequence: [
             { san: 'Ke2', title: '1. Ke2 — King Mobilization', speech: "1. Ke2 — In the endgame, the King transforms into an active attacking warrior!", tip: 'Activate King.' },
             { san: 'Ke7', title: '1... Ke7 — Opposing King Advance', speech: "1... Ke7 — Black marches King toward center.", tip: 'Black activates King.' },

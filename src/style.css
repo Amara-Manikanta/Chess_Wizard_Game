@@ -1212,3 +1212,306 @@ body {
   width: 100%;
   justify-content: center;
 }
+
+/* ============================================================
+   ENGINE BADGE, RECORD & MATCH SETTINGS
+   ============================================================ */
+
+.engine-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(56, 239, 125, 0.12);
+  border: 1px solid rgba(56, 239, 125, 0.4);
+  color: var(--accent-cyan);
+  white-space: nowrap;
+}
+
+.engine-badge.fallback {
+  background: rgba(212, 175, 55, 0.12);
+  border-color: var(--gold-glow);
+  color: var(--gold-light);
+}
+
+.player-record {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  white-space: nowrap;
+}
+
+.match-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.full-width { width: 100%; }
+
+.opponent-selector.disabled {
+  opacity: 0.45;
+  pointer-events: none;
+  filter: grayscale(0.6);
+}
+
+/* ============================================================
+   CHESS CLOCK
+   ============================================================ */
+
+.clock-panel {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.clock-side {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 10px;
+  background: var(--bg-card);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.clock-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.clock-time {
+  font-family: 'Cinzel', serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-main);
+  font-variant-numeric: tabular-nums;
+  min-width: 4ch;
+  text-align: right;
+}
+
+.clock-time.running {
+  color: var(--gold-light);
+  text-shadow: 0 0 10px var(--gold-glow);
+}
+
+.clock-time.low { color: var(--accent-crimson); }
+
+/* ============================================================
+   OPENING NAME
+   ============================================================ */
+
+.opening-name {
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--gold-light);
+  letter-spacing: 0.03em;
+  margin-bottom: 8px;
+  min-height: 1.2em;
+}
+
+/* ============================================================
+   ANALYSIS NOTICE
+   ============================================================ */
+
+.analysis-notice {
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  margin-bottom: 10px;
+  background: rgba(212, 175, 55, 0.1);
+  border: 1px solid var(--gold-glow);
+  color: var(--gold-light);
+}
+
+.analysis-notice.error {
+  background: rgba(255, 75, 43, 0.12);
+  border-color: rgba(255, 75, 43, 0.45);
+  color: #ffb3a7;
+}
+
+/* ============================================================
+   GAME REVIEW
+   ============================================================ */
+
+.review-container {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.review-progress {
+  text-align: center;
+  padding: 18px;
+  color: var(--gold-light);
+  font-weight: 600;
+}
+
+.review-opening {
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--gold-light);
+  font-weight: 600;
+}
+
+.review-sides {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.review-side {
+  background: var(--bg-card);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.rv-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 2px;
+}
+
+.rv-name {
+  font-weight: 700;
+  color: var(--text-main);
+  font-size: 0.9rem;
+}
+
+.rv-acc {
+  font-family: 'Cinzel', serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--accent-cyan);
+}
+
+.rv-sub {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.rv-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.rv-chip {
+  font-size: 0.68rem;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Move classification colours, shared by chips and the move list. */
+.rv-best,       .rv-chip.rv-best       { color: #4ade80; }
+.rv-excellent,  .rv-chip.rv-excellent  { color: #38ef7d; }
+.rv-good,       .rv-chip.rv-good       { color: #7dd3fc; }
+.rv-inaccuracy, .rv-chip.rv-inaccuracy { color: #fbbf24; }
+.rv-mistake,    .rv-chip.rv-mistake    { color: #fb923c; }
+.rv-blunder,    .rv-chip.rv-blunder    { color: #f87171; }
+
+.review-worst {
+  font-size: 0.82rem;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(255, 75, 43, 0.08);
+  border: 1px solid rgba(255, 75, 43, 0.3);
+  color: var(--text-main);
+}
+
+.review-graph {
+  background: var(--bg-card);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 10px;
+  padding: 6px;
+}
+
+.review-graph svg {
+  width: 100%;
+  height: 70px;
+  display: block;
+}
+
+.rv-graph-bg   { fill: rgba(10, 11, 16, 0.5); }
+.rv-graph-mid  { stroke: rgba(148, 163, 184, 0.35); stroke-width: 0.3; }
+.rv-graph-line {
+  fill: none;
+  stroke: var(--gold-primary);
+  stroke-width: 0.8;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.review-moves {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 4px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.rv-move {
+  display: grid;
+  grid-template-columns: 2.2em 1fr auto auto;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  background: rgba(148, 163, 184, 0.06);
+  transition: background 0.15s ease;
+}
+
+.rv-move:hover { background: rgba(212, 175, 55, 0.15); }
+
+.rv-num { color: var(--text-muted); font-size: 0.7rem; }
+.rv-san { font-weight: 600; color: var(--text-main); }
+.rv-icon { font-weight: 700; }
+.rv-loss { font-size: 0.68rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+.celebration-badge.draw {
+  background: linear-gradient(135deg, #64748b, #94a3b8);
+  color: #0a0b10;
+}
+
+@media (max-width: 640px) {
+  .review-sides { grid-template-columns: 1fr; }
+  .review-moves { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+  .engine-badge, .player-record { display: none; }
+}
+
+/* Generic hidden utility. The stylesheet previously only scoped `.hidden` to
+   modal overlays, so toggling it on anything else had no effect. Declared last
+   and with !important so it beats component rules that set their own display
+   (the clock panel is display:flex, for instance). */
+[hidden],
+.hidden {
+  display: none !important;
+}
