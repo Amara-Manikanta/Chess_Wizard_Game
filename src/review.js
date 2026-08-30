@@ -139,9 +139,14 @@ export class GameReview {
         ? 100
         : own.reduce((sum, m) => sum + moveAccuracy(m.loss), 0) / own.length;
 
+      // Cap each move's contribution before averaging. A single blunder that
+      // walks into mate carries a ~9600cp loss, which would otherwise drag the
+      // average to a meaningless number: losing a queen and losing to mate in
+      // three are both simply "as bad as it gets" for this statistic.
+      const LOSS_CAP = 1000;
       const avgLoss = own.length === 0
         ? 0
-        : own.reduce((sum, m) => sum + m.loss, 0) / own.length;
+        : own.reduce((sum, m) => sum + Math.min(m.loss, LOSS_CAP), 0) / own.length;
 
       perSide[color] = {
         counts,
